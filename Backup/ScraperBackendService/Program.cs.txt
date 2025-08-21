@@ -1,0 +1,56 @@
+using Microsoft.Playwright;
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+app.MapGet("/api/dlsite/{id}", async (string id) =>
+{
+    using var playwright = await Playwright.CreateAsync();
+    await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+    var page = await browser.NewPageAsync();
+
+    string url = $"https://www.dlsite.com/maniax/work/=/product_id/{id}.html";
+    await page.GotoAsync(url);
+
+    var title = await page.TitleAsync();
+
+    var result = new {
+        Title = title,
+        Year = 2023,
+        Rating = 4.5,
+        Description = "Sample description from DLsite",
+        Director = "Unknown",
+        VoiceActors = new[] { "Actor1" },
+        CoverImage = "https://example.com/sample.jpg",
+        Tags = new[] { "Tag1", "Tag2" }
+    };
+
+    return Results.Json(result);
+});
+
+app.MapGet("/api/hanime/{id}", async (string id) =>
+{
+    using var playwright = await Playwright.CreateAsync();
+    await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+    var page = await browser.NewPageAsync();
+
+    string url = $"https://hanime.tv/videos/hentai/{id}";
+    await page.GotoAsync(url);
+
+    var title = await page.TitleAsync();
+
+    var result = new {
+        Title = title,
+        Year = 2023,
+        Rating = 4.5,
+        Description = "Sample description from Hanime",
+        Director = "Unknown",
+        VoiceActors = new[] { "Actor1" },
+        CoverImage = "https://example.com/sample.jpg",
+        Tags = new[] { "Tag1", "Tag2" }
+    };
+
+    return Results.Json(result);
+});
+
+app.Run("http://0.0.0.0:8585");
