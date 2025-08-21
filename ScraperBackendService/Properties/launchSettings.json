@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "ScraperBackendService": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:12695;http://localhost:12696"
+    }
+  }
+}
