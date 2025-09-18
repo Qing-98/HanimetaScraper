@@ -4,7 +4,7 @@ using ScraperBackendService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1) È·±£°²×°ä¯ÀÀÆ÷£¨Ê×´ÎÔËÐÐ»áÏÂÔØ£©
+// 1) È·ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½Ø£ï¿½
 //await Playwright.InstallAsync();
 var playwright = await Playwright.CreateAsync();
 var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
@@ -12,7 +12,7 @@ var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
     Headless = true
 });
 
-// 2) µ¥Àý Playwright/Browser£¬¹©·þÎñ¸´ÓÃ
+// 2) ï¿½ï¿½ï¿½ï¿½ Playwright/Browserï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 builder.Services.AddSingleton(async sp =>
 {
     var pw = await Playwright.CreateAsync();
@@ -24,7 +24,7 @@ builder.Services.AddSingleton(async sp =>
     return browser;
 });
 
-// 3) ×¢²á Hanime ¹ÎÏ÷·þÎñ£¨ÒÀÀµµ¥Àý Browser£©
+// 3) ×¢ï¿½ï¿½ Hanime ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Browserï¿½ï¿½
 builder.Services.AddScoped<HanimeScraperPlaywrightClient>(sp =>
 {
     var browser = sp.GetRequiredService<Task<IBrowser>>().GetAwaiter().GetResult();
@@ -36,11 +36,11 @@ builder.Services.AddLogging();
 
 var app = builder.Build();
 
-// ½¡¿µ¼ì²é
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 app.MapGet("/", () => Results.Ok(new { ok = true, service = "ScraperBackendService", ts = DateTime.UtcNow }));
 
 // =============== Hanime ===============
-// ËÑË÷£º/api/hanime/search?title=xxx&max=12&genre=ÑY·¬&sort=×îÐÂÉÏÊÐ
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/api/hanime/search?title=xxx&max=12&genre=ï¿½Yï¿½ï¿½&sort=ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 app.MapGet("/api/hanime/search", async (
     string title,
     int? max,
@@ -50,11 +50,11 @@ app.MapGet("/api/hanime/search", async (
 {
     var list = await svc.SmartSearchAndFetchAllAsync(title, max ?? 12, sort);
 
-    // Ö±½Ó°´Ç°¶Ë²å¼þÔ¼¶¨·µ»Ø
+    // Ö±ï¿½Ó°ï¿½Ç°ï¿½Ë²ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     return Results.Json(list);
 });
 
-// £¨¿ÉÑ¡£©ÄãÒ²¿ÉÒÔ¼Ó£º/api/hanime/by-url?url=... »ò /api/hanime/{id} ¶Ëµã
-// ÕâÀïÏÈÊµÏÖËÑË÷Èë¿Ú£¬·½±ãÇ°¶Ë²å¼þ°´±êÌâËÑ
+// ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½Ô¼Ó£ï¿½/api/hanime/by-url?url=... ï¿½ï¿½ /api/hanime/{id} ï¿½Ëµï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½Ë²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 app.Run("http://0.0.0.0:8585");

@@ -9,16 +9,11 @@ using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
+using ScraperBackendService.AntiCloudflare;
 using ScraperBackendService.Models;
 
 namespace ScraperBackendService.Services
 {
-    /// <summary>
-    /// 抓取分流标志位：
-    /// - ById：按“数字ID”直达（支持纯数字或 https://hanime1.me/watch?v=12345）
-    /// - ByFilename：按文件名/标题搜索
-    /// - Auto：先当ID，失败则按文件名（可选）
-    /// </summary>
     public enum HanimeScrapeRoute
     {
         Auto = 0,
@@ -28,86 +23,104 @@ namespace ScraperBackendService.Services
 
     public class HanimeScraperPlaywrightClient
     {
-        private readonly IBrowser _browser;
         private readonly ILogger<HanimeScraperPlaywrightClient> _logger;
+        private readonly PlaywrightContextManager _ctxMgr;
 
-        // ===== 复用的 BrowserContext 与并发控制 =====
-        private IBrowserContext? _context;
         private readonly SemaphoreSlim _detailConcurrency; // 控制同时打开的详情页数量
         private readonly Random _rnd = new();
 
-        // 可调：详情页最大并发（建议 2~4，更像真人）
         private const int MAX_DETAIL_CONCURRENCY = 3;
         private const string Host = "https://hanime1.me";
 
-        public HanimeScraperPlaywrightClient(IBrowser browser, ILogger<HanimeScraperPlaywrightClient> logger)
+        public HanimeScraperPlaywrightClient(
+            IBrowser browser,
+            ILogger<HanimeScraperPlaywrightClient> logger,
+            ScrapeRuntimeOptions? opt = null)
         {
-            _browser = browser;
             _logger = logger;
+            _ctxMgr = new PlaywrightContextManager(browser, logger, opt);
             _detailConcurrency = new SemaphoreSlim(MAX_DETAIL_CONCURRENCY);
         }
 
-        // ===================== 对外主入口（带标志位分流） =====================
-
-        /// <summary>
-        /// 统一对外：前端传入“分流标志位”，在此进行分流。
-        /// </summary>
-        public async Task<List<HanimeMetadata>> FetchAsync(string input, HanimeScrapeRoute route, int maxResults = 12, string? sort = "最新上市")
+        // ===================== 对外主入口 =====================
+        public async Task<List<HanimeMetadata>> FetchAsync(
+            string input,
+            HanimeScrapeRoute route,
+            int maxResults = 12,
+            string? sort = "最新上市",
+            CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
+
             switch (route)
             {
                 case HanimeScrapeRoute.ById:
-                    {
-                        if (!TryParseHanimeNumericId(input, out var id))
-                            throw new ArgumentException($"按ID模式解析失败，输入不是合法的 Hanime 数字ID（支持：纯数字 或 {Host}/watch?v=12345）。输入：{input}");
-                        _logger.LogInformation("Hanime 按ID直达: {Id}", id);
-                        return await FetchByIdAsync(id);
-                    }
+                    if (!TryParseHanimeNumericId(input, out var id))
+                        throw new ArgumentException($"按ID模式解析失败，输入不是合法的 Hanime 数字ID（支持：纯数字 或 {Host}/watch?v=12345）。输入：{input}");
+                    _logger.LogInformation("Hanime 按ID直达: {Id}", id);
+                    return await FetchByIdAsync(id, ct);
 
                 case HanimeScrapeRoute.ByFilename:
-                    {
-                        _logger.LogInformation("Hanime 按文件名搜索: {Input}", input);
-                        return await SearchByFilenameAsync(input, maxResults, sort);
-                    }
+                    _logger.LogInformation("Hanime 按文件名搜索: {Input}", input);
+                    return await SearchByFilenameAsync(input, maxResults, sort, ct);
 
                 case HanimeScrapeRoute.Auto:
                 default:
+                    if (TryParseHanimeNumericId(input, out var id2))
                     {
-                        if (TryParseHanimeNumericId(input, out var id))
-                        {
-                            _logger.LogInformation("Hanime Auto→按ID直达: {Id}", id);
-                            return await FetchByIdAsync(id);
-                        }
-                        _logger.LogInformation("Hanime Auto→按文件名搜索: {Input}", input);
-                        return await SearchByFilenameAsync(input, maxResults, sort);
+                        _logger.LogInformation("Hanime Auto→按ID直达: {Id}", id2);
+                        return await FetchByIdAsync(id2, ct);
                     }
+                    _logger.LogInformation("Hanime Auto→按文件名搜索: {Input}", input);
+                    return await SearchByFilenameAsync(input, maxResults, sort, ct);
             }
         }
 
-        /// <summary>
-        /// 为兼容旧签名保留（内部等价于 Auto 分流）。
-        /// </summary>
-        public Task<List<HanimeMetadata>> SmartSearchAndFetchAllAsync(string searchTitle, int maxResults = 12, string? sort = "最新上市")
-            => FetchAsync(searchTitle, HanimeScrapeRoute.Auto, maxResults, sort);
+        public Task<List<HanimeMetadata>> FetchAsync(
+            string input,
+            HanimeScrapeRoute route,
+            int maxResults = 12,
+            string? sort = "最新上市")
+            => FetchAsync(input, route, maxResults, sort, CancellationToken.None);
 
-        /// <summary>
-        /// 按“数字ID”直达抓取（仅处理数字ID，不处理 slug）
-        /// </summary>
-        public async Task<List<HanimeMetadata>> FetchByIdAsync(string numericId)
+        public Task<List<HanimeMetadata>> SmartSearchAndFetchAllAsync(
+            string searchTitle,
+            int maxResults = 12,
+            string? sort = "最新上市",
+            CancellationToken ct = default)
+            => FetchAsync(searchTitle, HanimeScrapeRoute.Auto, maxResults, sort, ct);
+
+        public Task<List<HanimeMetadata>> SmartSearchAndFetchAllAsync(
+            string searchTitle,
+            int maxResults = 12,
+            string? sort = "最新上市")
+            => SmartSearchAndFetchAllAsync(searchTitle, maxResults, sort, CancellationToken.None);
+
+        // ===================== 按ID直达 =====================
+        public async Task<List<HanimeMetadata>> FetchByIdAsync(string numericId, CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (string.IsNullOrWhiteSpace(numericId) || !HanimeBareNumericIdRegex.IsMatch(numericId))
                 throw new ArgumentException("Hanime ID 非法（需为纯数字字符串，长度≥3）。", nameof(numericId));
 
             var url = BuildDetailUrlById(numericId);
             _logger.LogInformation("Hanime 直达URL: {Url}", url);
-            return await DirectFetchAsync(url);
+            return await DirectFetchAsync(url, ct);
         }
 
-        /// <summary>
-        /// 文件名搜索：清洗文件名 -> 关键词搜索 -> 抓详情
-        /// </summary>
-        public async Task<List<HanimeMetadata>> SearchByFilenameAsync(string filenameOrText, int maxResults = 12, string? sort = "最新上市")
+        public Task<List<HanimeMetadata>> FetchByIdAsync(string numericId)
+            => FetchByIdAsync(numericId, CancellationToken.None);
+
+        // ===================== 搜索流程（Locator + 详情并发） =====================
+        public async Task<List<HanimeMetadata>> SearchByFilenameAsync(
+            string filenameOrText,
+            int maxResults = 12,
+            string? sort = "最新上市",
+            CancellationToken ct = default)
         {
+            ct.ThrowIfCancellationRequested();
+
             string keyword = BuildQueryFromFilename(filenameOrText);
             if (string.IsNullOrWhiteSpace(keyword))
                 keyword = filenameOrText?.Trim() ?? string.Empty;
@@ -116,188 +129,96 @@ namespace ScraperBackendService.Services
             string queryParam = $"?query={Uri.EscapeDataString(keyword)}";
             string url = $"{Host}/search{queryParam}{sortParam}";
 
-            var context = await GetOrCreateContextAsync();
-            var page = await context.NewPageAsync(); // 仅开一个搜索页页面
+            var searchCtx = await _ctxMgr.GetOrCreateContextAsync(forDetail: false);
+            var page = await searchCtx.NewPageAsync();
+            _ctxMgr.BumpOpenedPages(searchCtx, forDetail: false);
 
-            _logger.LogInformation("Hanime 搜索: {Url}", url);
-            var results = await SearchOnceAsync(page, url, maxResults);
-
-            await page.CloseAsync(); // 关闭搜索页（详情页是单独开的）
-            // 不关闭 context：给下一次关键词复用
-
-            return results;
-        }
-
-        // ===================== 数字ID解析 & URL构建 =====================
-
-        // 仅支持两种输入：纯数字 或 https://hanime1.me/watch?v=12345
-        private static readonly Regex HanimeUrlNumericIdRegex = new(@"(?i)https?://(?:www\.)?hanime1\.me/watch\?v=(\d{3,})", RegexOptions.Compiled);
-        private static readonly Regex HanimeBareNumericIdRegex = new(@"^\d{3,}$", RegexOptions.Compiled);
-
-        private static bool TryParseHanimeNumericId(string? text, out string id)
-        {
-            id = string.Empty;
-            if (string.IsNullOrWhiteSpace(text)) return false;
-
-            var t = text.Trim();
-
-            // URL 形式：.../watch?v=12345
-            var m = HanimeUrlNumericIdRegex.Match(t);
-            if (m.Success) { id = m.Groups[1].Value; return true; }
-
-            // 纯数字
-            if (HanimeBareNumericIdRegex.IsMatch(t)) { id = t; return true; }
-
-            return false;
-        }
-
-        private static string BuildDetailUrlById(string numericId) => $"{Host}/watch?v={numericId}";
-
-        // ===================== Context 复用 =====================
-
-        // 复用 Context（只创建一次，后续直接使用；挂了会重建）
-        private async Task<IBrowserContext> GetOrCreateContextAsync()
-        {
-            // Browser 还连着吗？
-            bool browserAlive = _context?.Browser?.IsConnected ?? false;
-
-            if (_context == null || !browserAlive)
+            try
             {
-                // 旧的尽量关一下（忽略失败）
-                if (_context != null)
+                _logger.LogInformation("Hanime 搜索: {Url}", url);
+                await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 60000 });
+
+                var itemLocator = page.Locator("div[title] >> a.overlay");
+                await itemLocator.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 15000 });
+
+                await DoAntiBotActionsAsync(page, ct);
+
+                int count = await itemLocator.CountAsync();
+                var results = new List<HanimeMetadata>();
+                var baseUri = new Uri(Host);
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                for (int i = 0; i < count && results.Count < maxResults; i++)
                 {
-                    try { await _context.CloseAsync(); } catch { /* ignore */ }
+                    ct.ThrowIfCancellationRequested();
+
+                    var a = itemLocator.Nth(i);
+                    string? href = await a.GetAttributeAsync("href");
+                    if (string.IsNullOrWhiteSpace(href)) continue;
+
+                    if (!Uri.TryCreate(baseUri, href, out var absUri)) continue;
+                    var absUrl = absUri.AbsoluteUri;
+                    if (!absUrl.StartsWith($"{Host}/watch", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!seen.Add(absUrl)) continue;
+
+                    var container = a.Locator("xpath=ancestor::div[@title][1]");
+                    string title = (await container.GetAttributeAsync("title"))?.Trim() ?? "";
+
+                    string? cover = null;
+                    try
+                    {
+                        var img = container.Locator("img[src*='/thumbnail/']");
+                        if (await img.CountAsync() > 0)
+                            cover = await img.First.GetAttributeAsync("src");
+                    }
+                    catch { /* ignore */ }
+
+                    var meta = new HanimeMetadata { Title = title };
+                    meta.SourceUrls.Add(absUrl);
+                    TryExtractId(absUrl, out var id);
+                    meta.ID = id;
+                    if (!string.IsNullOrWhiteSpace(cover)) meta.Primary = cover;
+
+                    results.Add(meta);
                 }
 
-                _context = await _browser.NewContextAsync(new()
-                {
-                    UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                    ViewportSize = new ViewportSize { Width = 1280, Height = 900 },
-                    Locale = "en-US",
-                    TimezoneId = "Asia/Shanghai"
-                });
-
-                await _context.SetExtraHTTPHeadersAsync(new Dictionary<string, string>
-                {
-                    { "Accept-Language", "en-US,en;q=0.9" }
-                });
-
-                // 如需 stealth，这里注入
-                // var stealthPath = Path.Combine(AppContext.BaseDirectory, "StealthInit.js");
-                // if (File.Exists(stealthPath))
-                //     await _context.AddInitScriptAsync(await File.ReadAllTextAsync(stealthPath));
+                // 并发抓详情（forDetail=true）
+                var tasks = results.Select(m => ProcessDetailAsync(m.SourceUrls[0], m, ct));
+                var processed = await Task.WhenAll(tasks);
+                return processed.Where(m => m != null).ToList()!;
             }
-
-            return _context;
+            finally
+            {
+                try { await page.CloseAsync(); } catch { }
+            }
         }
 
-        // ===================== 搜索页收集与详情抓取 =====================
+        public Task<List<HanimeMetadata>> SearchByFilenameAsync(
+            string filenameOrText,
+            int maxResults = 12,
+            string? sort = "最新上市")
+            => SearchByFilenameAsync(filenameOrText, maxResults, sort, CancellationToken.None);
 
-        private async Task<List<HanimeMetadata>> SearchOnceAsync(IPage page, string url, int maxResults)
+        // ===================== 直达详情抓取 =====================
+        private async Task<List<HanimeMetadata>> DirectFetchAsync(string detailUrl, CancellationToken ct)
         {
-            var results = new ConcurrentBag<HanimeMetadata>();
+            ct.ThrowIfCancellationRequested();
 
-            // ① 打开搜索页
-            await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
-            await DoAntiBotActionsAsync(page); // 反爬动作（滚动/停顿）
-
-            var html = await page.ContentAsync();
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            var videoDivs = doc.DocumentNode.SelectNodes("//div[@title]");
-            if (videoDivs == null || videoDivs.Count == 0)
-                return results.ToList();
-
-            var detailUrlSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var metaMap = new Dictionary<string, HanimeMetadata>(StringComparer.OrdinalIgnoreCase);
-
-            // ② 收集搜索结果（仅保留 https://hanime1.me/watch...）
-            var baseUri = new Uri(Host);
-
-            foreach (var div in videoDivs)
-            {
-                var link = div.SelectSingleNode(".//a[@class='overlay']");
-                var hrefRaw = link?.GetAttributeValue("href", null)?.Trim();
-                if (string.IsNullOrWhiteSpace(hrefRaw)) continue;
-
-                // 统一规范为绝对 URL（相对/协议相对都能补全）
-                if (!Uri.TryCreate(baseUri, hrefRaw, out var absUri)) continue;
-                var absUrl = absUri.AbsoluteUri;
-
-                // 只保留目标域 + watch 路径（最直接、最稳）
-                if (!absUrl.StartsWith($"{Host}/watch", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogDebug("过滤非目标链接: {Url}", absUrl);
-                    continue;
-                }
-
-                // 去重使用“规范化后”的 URL
-                if (!detailUrlSet.Add(absUrl)) continue;
-
-                var meta = new HanimeMetadata
-                {
-                    Title = div.GetAttributeValue("title", null)?.Trim()
-                };
-                meta.SourceUrls.Add(absUrl);
-                TryExtractId(absUrl, out var id);
-                meta.ID = id; // 直接从 URL 提取 ID
-
-                var img = div.SelectSingleNode(".//img[contains(@src,'/thumbnail/')]");
-                if (img != null)
-                {
-                    var coverUrl = img.GetAttributeValue("src", null);
-                    if (!string.IsNullOrWhiteSpace(coverUrl))
-                        meta.Primary = coverUrl;
-                }
-
-                metaMap[absUrl] = meta;                // ✅ 用规范化后的 URL 做 key
-                if (metaMap.Count >= maxResults) break;
-            }
-
-            if (metaMap.Count == 0) return results.ToList();
-
-            // ③ 并发访问详情页（使用与搜索页相同的 Context，保持 cookie/session）
-            var context = page.Context;
-            var tasks = metaMap.Select(kv => ProcessDetailAsync(context, kv.Key, kv.Value));
-
-            // 限制并发并汇总
-            var processed = await Task.WhenAll(tasks);
-            foreach (var meta in processed)
-            {
-                if (meta != null) results.Add(meta);
-            }
-
-            return results.ToList();
-        }
-
-        /// <summary>
-        /// 直达详情抓取（从 URL 直接开页解析），返回单条结果列表以保持统一签名
-        /// </summary>
-        private async Task<List<HanimeMetadata>> DirectFetchAsync(string detailUrl)
-        {
-            // 仅白名单域名
             if (!detailUrl.StartsWith($"{Host}/watch", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("只允许 hanime1.me 域名的直达 URL。");
-
-            var context = await GetOrCreateContextAsync();
 
             var meta = new HanimeMetadata();
             meta.SourceUrls.Add(detailUrl);
             TryExtractId(detailUrl, out var id);
-            meta.ID = id; // 直接从 URL 提取 ID
+            meta.ID = id;
 
-            var processed = await ProcessDetailAsync(context, detailUrl, meta);
+            var processed = await ProcessDetailAsync(detailUrl, meta, ct);
             if (processed is null) return new List<HanimeMetadata>();
 
-            // === 关键：用详情页信息覆盖 ===
-            // 1) original title 覆盖 title
+            // 用详情页信息覆盖
             if (!string.IsNullOrWhiteSpace(processed.OriginalTitle))
                 processed.Title = processed.OriginalTitle;
 
-            // 2) 用缩略图（thumb/poster）覆盖 cover（Primary）
-            //    ParseHanimeDetail 会把 <video poster="..."> 放到 Thumbnails，并在 Primary 为空时赋值。
-            //    为确保覆盖，这里无论 Primary 先前是否有值，都用第一个缩略图替换。
             var thumb = processed.Thumbnails?.FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
             if (!string.IsNullOrWhiteSpace(thumb))
                 processed.Primary = thumb;
@@ -305,69 +226,285 @@ namespace ScraperBackendService.Services
             return new List<HanimeMetadata> { processed };
         }
 
-        // 单个详情页的处理（受并发池保护）
-        private async Task<HanimeMetadata?> ProcessDetailAsync(IBrowserContext context, string detailUrl, HanimeMetadata meta)
+        // ===================== 单个详情（带并发限流 + 慢速重试） =====================
+        private async Task<HanimeMetadata?> ProcessDetailAsync(string detailUrl, HanimeMetadata meta, CancellationToken ct)
         {
-            await _detailConcurrency.WaitAsync();
-            IPage? detailPage = null;
+            await _detailConcurrency.WaitAsync(ct);
+            IPage? page = null;
 
             try
             {
-                detailPage = await context.NewPageAsync();
+                // —— 第一次尝试：在“详情用”Context 里 —— 
+                var ctx = await _ctxMgr.GetOrCreateContextAsync(forDetail: true);
+                page = await ctx.NewPageAsync();
+                _ctxMgr.BumpOpenedPages(ctx, forDetail: true);
 
-                await detailPage.GotoAsync(detailUrl, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 60000 });
+                try
+                {
+                    await TryGotoAndWaitAsync(page, detailUrl, timeoutMs: 60000, ct);
+                    await DoAntiBotActionsAsync(page, ct);
 
-                // 可选：等待网络空闲一会，给动态脚本完成时间
-                // await detailPage.WaitForLoadStateAsync(LoadState.NetworkIdle);
+                    // 先用 Locator 取关键字段；失败回退到 HTML 解析
+                    await TryFillMetaViaLocatorAsync(page, meta);
+                    var html = await page.ContentAsync();
 
-                // 反爬动作
-                await DoAntiBotActionsAsync(detailPage);
+                    if (LooksLikeChallenge(page.Url, html))
+                        throw new InvalidOperationException("Challenge detected on primary attempt.");
 
-                var detailHtml = await detailPage.ContentAsync();
-                ParseHanimeDetail(detailHtml, meta);
+                    // 回退完整解析，弥补 Locator 没覆盖的字段
+                    ParseHanimeDetail(html, meta);
 
-                return meta;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "访问详情页失败: {Url}", detailUrl);
-                return null;
+                    return meta;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex1)
+                {
+                    _logger.LogWarning(ex1, "Primary attempt failed, slow-retry with NEW temp context: {Url}", detailUrl);
+
+                    // —— 第二次尝试：使用全新临时 Context 慢速重试 —— 
+                    await SafeClosePage(page);
+                    page = null;
+
+                    var tempCtx = await NewTempContextAsync();
+                    try
+                    {
+                        var tmpPage = await tempCtx.NewPageAsync();
+                        page = tmpPage;
+
+                        await TryGotoAndWaitAsync(tmpPage, detailUrl, timeoutMs: _ctxMgr.Options.SlowRetryGotoTimeoutMs, ct);
+                        await DoAntiBotActionsAsync(tmpPage, ct);
+
+                        await TryFillMetaViaLocatorAsync(tmpPage, meta);
+                        var html2 = await tmpPage.ContentAsync();
+
+                        if (LooksLikeChallenge(tmpPage.Url, html2))
+                            throw new InvalidOperationException("Challenge detected on slow-retry.");
+
+                        ParseHanimeDetail(html2, meta);
+
+                        // 慢速重试成功，标记当前“详情用”Context 以便轮换
+                        _ctxMgr.FlagChallengeOnCurrent(forDetail: true);
+                        _logger.LogInformation("Slow-retry succeeded; flag detail context to rotate.");
+
+                        return meta;
+                    }
+                    finally
+                    {
+                        try { await tempCtx.CloseAsync(); } catch { }
+                    }
+                }
             }
             finally
             {
-                if (detailPage != null && !detailPage.IsClosed)
-                    await detailPage.CloseAsync();
-
+                await SafeClosePage(page);
                 _detailConcurrency.Release();
             }
         }
 
-        // ===== 反爬动作：随机停顿 + 滚动 + 鼠标/键盘轻触 =====
-        private async Task DoAntiBotActionsAsync(IPage page)
+        private bool LooksLikeChallenge(string? url, string? html)
+        {
+            var opt = _ctxMgr.Options;
+            if (!string.IsNullOrEmpty(url) && opt.ChallengeUrlHints.Any(h => url.IndexOf(h, StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            if (!string.IsNullOrEmpty(html) && opt.ChallengeDomHints.Any(h => html.IndexOf(h, StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            return false;
+        }
+
+        private async Task TryGotoAndWaitAsync(IPage page, string url, int timeoutMs, CancellationToken ct)
+        {
+            await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = timeoutMs });
+            // 等待关键元素更稳
+            await page.Locator("#shareBtn-title").First.WaitForAsync(new LocatorWaitForOptions
+            {
+                Timeout = _ctxMgr.Options.SlowRetryWaitSelectorMs
+            });
+        }
+
+        private static async Task SafeClosePage(IPage? p)
+        {
+            if (p is null) return;
+            try { if (!p.IsClosed) await p.CloseAsync(); } catch { }
+        }
+
+        private async Task<IBrowserContext> NewTempContextAsync()
+        {
+            // 使用 ContextManager 的配置创建一个“一次性”的隔离 Context（不纳入统计）
+            var browser = (_ctxMgr.GetType()
+                .GetField("_browser", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.GetValue(_ctxMgr)) as IBrowser;
+
+            if (browser == null)
+                throw new InvalidOperationException("Cannot access browser from context manager.");
+
+            // 复制配置
+            var opt = _ctxMgr.Options;
+            var ctx = await browser.NewContextAsync(new()
+            {
+                UserAgent = opt.UserAgent,
+                ViewportSize = new() { Width = opt.ViewportWidth, Height = opt.ViewportHeight },
+                Locale = opt.Locale,
+                TimezoneId = opt.TimezoneId
+            });
+            await ctx.SetExtraHTTPHeadersAsync(new Dictionary<string, string> { { "Accept-Language", opt.AcceptLanguage } });
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(opt.StealthInitRelativePath))
+                {
+                    var path = Path.IsPathRooted(opt.StealthInitRelativePath)
+                        ? opt.StealthInitRelativePath
+                        : Path.Combine(AppContext.BaseDirectory, opt.StealthInitRelativePath);
+
+                    if (File.Exists(path))
+                    {
+                        var script = await File.ReadAllTextAsync(path);
+                        await ctx.AddInitScriptAsync(script);
+                    }
+                }
+            }
+            catch { /* ignore */ }
+
+            return ctx;
+        }
+
+        // ===== 反爬动作：更“真人化”的随机移动/悬停/滚动/键盘（但不点击） =====
+        private async Task DoAntiBotActionsAsync(IPage page, CancellationToken ct)
         {
             try
             {
-                // 800~1600ms 的随机停顿
-                await page.WaitForTimeoutAsync(_rnd.Next(800, 1600));
+                static async Task WaitRandomAsync(Random rnd, int minMs, int maxMs, CancellationToken token)
+                {
+                    var delay = rnd.Next(minMs, maxMs);
+                    await Task.Delay(delay, token);
+                }
 
-                // 随机移动鼠标到页面内某区域
-                await page.Mouse.MoveAsync(_rnd.Next(60, 600), _rnd.Next(60, 500));
+                static async Task MoveMouseHumanAsync(IMouse mouse, int fromX, int fromY, int toX, int toY, int steps, Random rnd, CancellationToken token)
+                {
+                    var dx = (toX - fromX) / (float)steps;
+                    var dy = (toY - fromY) / (float)steps;
+                    for (int i = 1; i <= steps; i++)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        var x = fromX + dx * i;
+                        var y = fromY + dy * i;
+                        await mouse.MoveAsync(x, y, new MouseMoveOptions { Steps = 1 });
+                        await Task.Delay(rnd.Next(15, 70), token);
+                    }
+                }
 
-                // 30% 概率轻点一下
-                if (_rnd.NextDouble() < 0.3)
-                    await page.Mouse.ClickAsync(_rnd.Next(80, 400), _rnd.Next(80, 300));
+                await WaitRandomAsync(_rnd, 600, 1400, ct);
 
-                // 60% 概率滚动一段距离
-                if (_rnd.NextDouble() < 0.6)
-                    await page.Mouse.WheelAsync(0, _rnd.Next(200, 800));
+                int viewportWidth = 1280, viewportHeight = 900;
+                try
+                {
+                    var vp = page.ViewportSize;
+                    if (vp != null) { viewportWidth = vp.Width; viewportHeight = vp.Height; }
+                }
+                catch { }
 
-                // 偶尔按一下方向键
-                if (_rnd.NextDouble() < 0.25)
-                    await page.Keyboard.PressAsync("ArrowDown");
+                var startX = _rnd.Next(60, Math.Max(100, Math.Min(600, viewportWidth / 2)));
+                var startY = _rnd.Next(60, Math.Max(100, Math.Min(500, viewportHeight / 2)));
+                var midX = _rnd.Next(viewportWidth / 4, viewportWidth * 3 / 4);
+                var midY = _rnd.Next(viewportHeight / 4, viewportHeight * 3 / 4);
+
+                await MoveMouseHumanAsync(page.Mouse, startX, startY, midX, midY, _rnd.Next(6, 16), _rnd, ct);
+
+                try
+                {
+                    var candidates = await page.QuerySelectorAllAsync("a, img, button, div[role='button']");
+                    if (candidates != null && candidates.Count > 0)
+                    {
+                        int toHover = _rnd.Next(0, 3);
+                        for (int i = 0; i < toHover; i++)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            var node = candidates[_rnd.Next(candidates.Count)];
+                            try
+                            {
+                                var box = await node.BoundingBoxAsync();
+                                if (box != null)
+                                {
+                                    var hx = (int)(box.X + box.Width / 2);
+                                    var hy = (int)(box.Y + box.Height / 2);
+                                    await MoveMouseHumanAsync(page.Mouse, midX, midY, hx, hy, _rnd.Next(6, 12), _rnd, ct);
+                                    await node.HoverAsync();
+                                    await WaitRandomAsync(_rnd, 500, 1400, ct);
+                                    midX = hx; midY = hy;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                catch { }
+
+                if (_rnd.NextDouble() < 0.9)
+                {
+                    int totalScroll = _rnd.Next(150, 1000);
+                    int chunk = _rnd.Next(80, 220);
+                    int scrolled = 0;
+                    while (scrolled < totalScroll)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var delta = Math.Min(chunk, totalScroll - scrolled);
+                        await page.Mouse.WheelAsync(0, delta);
+                        scrolled += delta;
+                        await Task.Delay(_rnd.Next(180, 450), ct);
+                    }
+                }
+
+                if (_rnd.NextDouble() < 0.35)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (_rnd.NextDouble() < 0.5)
+                        await page.Keyboard.PressAsync("PageDown");
+                    else
+                        await page.Keyboard.PressAsync("ArrowDown");
+
+                    await Task.Delay(_rnd.Next(200, 700), ct);
+                }
+
+                var endX = _rnd.Next(20, Math.Min(200, viewportWidth - 20));
+                var endY = _rnd.Next(20, Math.Min(200, viewportHeight - 20));
+                await MoveMouseHumanAsync(page.Mouse, midX, midY, endX, endY, _rnd.Next(8, 18), _rnd, ct);
+
+                await WaitRandomAsync(_rnd, 700, 1600, ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* ignore */ }
+        }
+
+        // ============ Locator 优先填充，失败回退 HtmlAgilityPack ============
+        private async Task TryFillMetaViaLocatorAsync(IPage page, HanimeMetadata meta)
+        {
+            try
+            {
+                var titleNode = page.Locator("#shareBtn-title");
+                if (await titleNode.CountAsync() > 0)
+                {
+                    var rawTitle = (await titleNode.InnerTextAsync()).Trim();
+                    var re = new Regex(@"\[[^\]]*\]");
+                    var cleanTitle = re.Replace(rawTitle, string.Empty, 1 /*count*/, 0 /*startat*/).Trim();
+                    // 如果你的 .NET 版本支持 3 参重载，也可以：re.Replace(rawTitle, string.Empty, 1)
+                    meta.OriginalTitle = cleanTitle;
+                    if (string.IsNullOrWhiteSpace(meta.Title)) meta.Title = cleanTitle;
+                }
+
+                var posterNode = page.Locator("video[poster]");
+                if (await posterNode.CountAsync() > 0)
+                {
+                    var poster = await posterNode.First.GetAttributeAsync("poster");
+                    if (!string.IsNullOrWhiteSpace(poster))
+                    {
+                        if (string.IsNullOrWhiteSpace(meta.Primary)) meta.Primary = poster;
+                        if (!meta.Thumbnails.Contains(poster)) meta.Thumbnails.Add(poster);
+                    }
+                }
             }
             catch
             {
-                // 反爬动作失败不影响主流程
+                // 忽略，回退到 ParseHanimeDetail
             }
         }
 
@@ -384,9 +521,7 @@ namespace ScraperBackendService.Services
                 var regex = new Regex(@"\[.*?\]");
                 var cleanTitle = regex.Replace(rawTitle, "", 1).Trim();
                 meta.OriginalTitle = cleanTitle;
-
-                if (string.IsNullOrWhiteSpace(meta.Title))
-                    meta.Title = cleanTitle;
+                if (string.IsNullOrWhiteSpace(meta.Title)) meta.Title = cleanTitle;
             }
 
             // 描述
@@ -465,6 +600,7 @@ namespace ScraperBackendService.Services
             }
         }
 
+        // ===================== 工具/解析辅助 =====================
         private static string CleanTag(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return "";
@@ -478,29 +614,42 @@ namespace ScraperBackendService.Services
                       .Trim();
         }
 
-        // ===================== 文件名 -> 关键词 清洗 =====================
-
         private static string BuildQueryFromFilename(string filenameOrText)
         {
             if (string.IsNullOrWhiteSpace(filenameOrText)) return "";
-
-            // 1) 取文件名（去路径、去扩展名）
             var name = Path.GetFileNameWithoutExtension(filenameOrText.Trim());
 
-            // 2) 去掉常见无关标记（分辨率、编码、字幕等）
             var cleaned = Regex.Replace(name, @"(?i)\b(1080p|2160p|720p|480p|hevc|x265|x264|h\.?264|h\.?265|aac|flac|hdr|dv|10bit|8bit|webrip|web-dl|bluray|remux|sub|chs|cht|eng|multi|unrated|proper|repack)\b", " ");
-            cleaned = Regex.Replace(cleaned, @"[\[\]\(\)\{\}【】（）]", " "); // 括号替空格
-            cleaned = Regex.Replace(cleaned, @"[_\.]+", " ");                // 下划线/点转空格
+            cleaned = Regex.Replace(cleaned, @"[\[\]\(\)\{\}【】（）]", " ");
+            cleaned = Regex.Replace(cleaned, @"[_\.]+", " ");
             cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
 
-            // 3) 如果清洗过度，至少返回原始名
             if (string.IsNullOrWhiteSpace(cleaned))
                 cleaned = name;
 
             return cleaned;
         }
 
-        // 从 https://hanime1.me/watch?v=86994[&...] 提取 86994
+        private static readonly Regex HanimeUrlNumericIdRegex = new(@"(?i)https?://(?:www\.)?hanime1\.me/watch\?v=(\d{3,})", RegexOptions.Compiled);
+        private static readonly Regex HanimeBareNumericIdRegex = new(@"^\d{3,}$", RegexOptions.Compiled);
+
+        private static bool TryParseHanimeNumericId(string? text, out string id)
+        {
+            id = string.Empty;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            var t = text.Trim();
+
+            var m = HanimeUrlNumericIdRegex.Match(t);
+            if (m.Success) { id = m.Groups[1].Value; return true; }
+
+            if (HanimeBareNumericIdRegex.IsMatch(t)) { id = t; return true; }
+
+            return false;
+        }
+
+        private static string BuildDetailUrlById(string numericId) => $"{Host}/watch?v={numericId}";
+
         private static bool TryExtractId(string url, out string id)
         {
             id = "";

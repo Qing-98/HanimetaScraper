@@ -11,4 +11,22 @@
     <PackageReference Include="Microsoft.Playwright" Version="1.*" />
     <PackageReference Include="HtmlAgilityPack" Version="1.*" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- 复制到最终运行目录；保留子目录 AntiCloudflare -->
+    <None Include="AntiCloudflare\StealthInit.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>AntiCloudflare\StealthInit.js</TargetPath>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Core\Abstractions\" />
+    <Folder Include="Core\Net\" />
+    <Folder Include="Core\Routing\" />
+    <Folder Include="Core\Util\" />
+    <Folder Include="Core\Pipeline\" />
+    <Folder Include="Core\Models\" />
+    <Folder Include="Providers\DLsite\" />
+    <Folder Include="Providers\Hanime\" />
+  </ItemGroup>
 </Project>
