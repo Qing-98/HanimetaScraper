@@ -41,7 +41,12 @@ namespace ScraperBackendService.AntiCloudflare
         public string TimezoneId { get; set; } = "Australia/Melbourne";
         public string AcceptLanguage { get; set; } = "zh-CN,zh;q=0.9";
         public string? StealthInitRelativePath { get; set; } = Path.Combine("AntiCloudflare", "StealthInit.js");
+
+        // 页面就绪判断：依次等待这些选择器出现；为 null/空时退回等 "body"
+        public string[]? ReadySelectors { get; set; }
+
     }
+
 
     /// <summary>
     /// 负责创建/复用/轮换 Playwright 的 BrowserContext（含搜索/详情隔离）。
