@@ -3,35 +3,35 @@ using System.Text.RegularExpressions;
 namespace ScraperBackendService.Core.Parsing;
 
 /// <summary>
-/// 提取富文本时的高级选项；默认值尽量保持“安全&通用”。
+/// Advanced options for rich text extraction; defaults aim to be "safe & universal".
 /// </summary>
 public sealed class RichTextOptions
 {
-    /// <summary>是否保留换行；为 false 时会把换行折叠为空格。</summary>
+    /// <summary>Whether to preserve line breaks; when false, line breaks are collapsed to spaces.</summary>
     public bool KeepNewLines { get; init; } = true;
 
-    /// <summary>是否保留完全空行（比如 p &lt;br&gt; 产生的空行）。</summary>
+    /// <summary>Whether to preserve completely empty lines (e.g., empty lines produced by p &lt;br&gt;).</summary>
     public bool PreserveEmptyLines { get; init; } = false;
 
-    /// <summary>是否渲染列表（ul/ol 的 li 前加项目符号）。</summary>
+    /// <summary>Whether to render lists (add bullet points before ul/ol li items).</summary>
     public bool RenderLists { get; init; } = true;
 
-    /// <summary>列表项目的前缀符号。</summary>
+    /// <summary>Prefix symbol for list items.</summary>
     public string Bullet { get; init; } = "• ";
 
-    /// <summary>最大段落数（null 表示不限制）。</summary>
+    /// <summary>Maximum number of paragraphs (null means no limit).</summary>
     public int? MaxParagraphs { get; init; }
 
-    /// <summary>最大字符数（null 表示不限制）。超过后会在末尾追加省略号 "…"。</summary>
+    /// <summary>Maximum number of characters (null means no limit). When exceeded, ellipsis "…" will be appended.</summary>
     public int? MaxChars { get; init; }
 
-    /// <summary>包含这些关键字的段落会被过滤（大小写不敏感）。</summary>
+    /// <summary>Paragraphs containing these keywords will be filtered out (case insensitive).</summary>
     public List<string> ExcludeContains { get; } = new();
 
-    /// <summary>匹配这些正则的段落会被过滤。</summary>
+    /// <summary>Paragraphs matching these regex patterns will be filtered out.</summary>
     public List<Regex> ExcludeRegex { get; } = new();
 
-    /// <summary>在最终拼接后，允许做一次自定义后处理。</summary>
+    /// <summary>Allows custom post-processing after final concatenation.</summary>
     public Func<string, string>? PostProcess { get; init; }
 
     public static RichTextOptions Default { get; } = new();

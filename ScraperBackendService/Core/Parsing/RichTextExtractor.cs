@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Net;
-using System.Linq;                  // ★ 重要：为空序列需要
+using System.Linq;
 using HtmlAgilityPack;
 
 namespace ScraperBackendService.Core.Parsing;
@@ -15,9 +15,9 @@ public static class RichTextExtractor
 
         var paras = new List<string>();
 
-        // 1.1 多类型 item（DLsite 常见）
+        // 1.1 Multi-type items (common in DLsite)
         foreach (var item in root.SelectNodes(".//div[contains(@class,'work_parts_multitype_item') and contains(@class,'type_text')]")
-                                  ?? Enumerable.Empty<HtmlNode>())   // ★ 修复
+                                  ?? Enumerable.Empty<HtmlNode>())
         {
             var ps = item.SelectNodes(".//p");
             if (ps is { Count: > 0 })
@@ -30,15 +30,15 @@ public static class RichTextExtractor
             }
         }
 
-        // 1.2 段落 p
-        foreach (var p in root.SelectNodes(".//p") ?? Enumerable.Empty<HtmlNode>())  // ★ 修复
+        // 1.2 Paragraph p
+        foreach (var p in root.SelectNodes(".//p") ?? Enumerable.Empty<HtmlNode>())
             AddPara(paras, NodeText(p, opt));
 
-        // 1.3 列表 ul/ol -> li
+        // 1.3 Lists ul/ol -> li
         if (opt.RenderLists)
         {
             foreach (var li in root.SelectNodes(".//ul/li | .//ol/li")
-                                 ?? Enumerable.Empty<HtmlNode>())    // ★ 修复
+                                 ?? Enumerable.Empty<HtmlNode>())
             {
                 var t = NodeText(li, opt);
                 if (!string.IsNullOrWhiteSpace(t))
@@ -46,14 +46,14 @@ public static class RichTextExtractor
             }
         }
 
-        // 1.4 兜底
+        // 1.4 Fallback
         if (paras.Count == 0)
         {
             var t = NodeText(root, opt);
             if (!string.IsNullOrWhiteSpace(t)) paras.Add(t);
         }
 
-        // 2) 过滤
+        // 2) Filtering
         if (opt.ExcludeContains.Count > 0 || opt.ExcludeRegex.Count > 0)
         {
             paras = paras.Where(p =>
@@ -67,21 +67,21 @@ public static class RichTextExtractor
             }).ToList();
         }
 
-        // 3) 段落上限
+        // 3) Paragraph limit
         if (opt.MaxParagraphs is int maxP && maxP > 0 && paras.Count > maxP)
             paras = paras.Take(maxP).ToList();
 
-        // 4) 拼接
+        // 4) Concatenation
         var text = string.Join("\n\n", paras.Where(s => !string.IsNullOrWhiteSpace(s)));
 
-        // 5) 空白规整
+        // 5) Whitespace normalization
         text = NormalizeWhitespace(text, opt);
 
-        // 6) 字数上限
+        // 6) Character limit
         if (opt.MaxChars is int maxC && maxC > 0 && text.Length > maxC)
             text = text[..Math.Max(0, maxC - 1)] + "…";
 
-        // 7) 自定义后处理
+        // 7) Custom post-processing
         if (opt.PostProcess is not null)
             text = opt.PostProcess(text);
 
@@ -91,7 +91,7 @@ public static class RichTextExtractor
     public static string ExtractFrom(HtmlDocument doc, string xpath, RichTextOptions? options = null)
         => ExtractFrom(doc.DocumentNode.SelectSingleNode(xpath), options);
 
-    // === 内部工具 ===
+    // === Internal Tools ===
     private static string NodeText(HtmlNode n, RichTextOptions opt)
     {
         var sb = new StringBuilder();

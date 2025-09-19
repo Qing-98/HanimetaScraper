@@ -4,22 +4,108 @@ using Microsoft.Playwright;
 namespace ScraperBackendService.Core.Abstractions;
 
 /// <summary>
-/// 统一的网络访问抽象：
-/// - Http 实现：GetHtmlAsync / GetJsonAsync；OpenPageAsync 返回 null；
-/// - Playwright 实现：三者都可用（GetHtmlAsync 可由 page.ContentAsync() 实现）。
+/// Unified network access abstraction supporting both HTTP and browser-based clients.
+/// Provides a common interface for different network access strategies:
+/// - HTTP implementation: Supports GetHtmlAsync/GetJsonAsync; OpenPageAsync returns null
+/// - Playwright implementation: Supports all methods; GetHtmlAsync can use page.ContentAsync()
 /// </summary>
+/// <example>
+/// Usage with HTTP client:
+/// var httpClient = new HttpNetworkClient(logger);
+/// var html = await httpClient.GetHtmlAsync("https://example.com", ct);
+/// var page = await httpClient.OpenPageAsync("https://example.com", ct); // Returns null
+/// 
+/// Usage with Playwright client:
+/// var playwrightClient = new PlaywrightNetworkClient(browser);
+/// var html = await playwrightClient.GetHtmlAsync("https://example.com", ct);
+/// var page = await playwrightClient.OpenPageAsync("https://example.com", ct); // Returns IPage
+/// 
+/// Provider usage pattern:
+/// var page = await networkClient.OpenPageAsync(url, ct);
+/// if (page != null)
+/// {
+///     // Use Playwright features for dynamic content
+///     await page.ClickAsync("button");
+///     var html = await page.ContentAsync();
+/// }
+/// else
+/// {
+///     // Fallback to HTTP-only approach
+///     var html = await networkClient.GetHtmlAsync(url, ct);
+/// }
+/// </example>
 public interface INetworkClient
 {
+    /// <summary>
+    /// Retrieves HTML content from the specified URL.
+    /// </summary>
+    /// <param name="url">Target URL to fetch HTML from</param>
+    /// <param name="ct">Cancellation token for request timeout</param>
+    /// <returns>HTML content as string</returns>
+    /// <example>
+    /// var html = await networkClient.GetHtmlAsync("https://example.com/page", CancellationToken.None);
+    /// var doc = new HtmlDocument();
+    /// doc.LoadHtml(html);
+    /// var title = doc.DocumentNode.SelectSingleNode("//title")?.InnerText;
+    /// </example>
     Task<string> GetHtmlAsync(string url, CancellationToken ct);
 
+    /// <summary>
+    /// Retrieves JSON data from the specified URL with optional custom headers.
+    /// </summary>
+    /// <param name="url">Target URL to fetch JSON from</param>
+    /// <param name="headers">Optional HTTP headers to include in the request</param>
+    /// <param name="ct">Cancellation token for request timeout</param>
+    /// <returns>Parsed JSON document</returns>
+    /// <example>
+    /// // Simple JSON request
+    /// var json = await networkClient.GetJsonAsync("https://api.example.com/data", null, ct);
+    /// var value = json.RootElement.GetProperty("value").GetString();
+    /// 
+    /// // JSON request with custom headers
+    /// var headers = new Dictionary&lt;string, string&gt; 
+    /// {
+    ///     { "X-Requested-With", "XMLHttpRequest" },
+    ///     { "Referer", "https://example.com" }
+    /// };
+    /// var json2 = await networkClient.GetJsonAsync("https://api.example.com/ajax", headers, ct);
+    /// </example>
     Task<JsonDocument> GetJsonAsync(
         string url,
         IDictionary<string, string>? headers,
         CancellationToken ct);
 
     /// <summary>
-    /// 仅 Playwright 实现会返回 IPage；Http 实现可返回 null。
-    /// Provider 使用前应判断是否为 null。
+    /// Opens a browser page for the specified URL (Playwright implementations only).
+    /// HTTP implementations return null. Providers should check for null before using.
     /// </summary>
+    /// <param name="url">Target URL to open in browser</param>
+    /// <param name="ct">Cancellation token for page creation timeout</param>
+    /// <returns>Playwright page instance or null if not supported</returns>
+    /// <example>
+    /// var page = await networkClient.OpenPageAsync("https://dynamic-site.com", ct);
+    /// if (page != null)
+    /// {
+    ///     // Browser-specific operations
+    ///     await page.WaitForSelectorAsync(".dynamic-content");
+    ///     await page.ClickAsync("button#load-more");
+    ///     var elements = await page.QuerySelectorAllAsync(".result-item");
+    ///     
+    ///     foreach (var element in elements)
+    ///     {
+    ///         var text = await element.InnerTextAsync();
+    ///         var href = await element.GetAttributeAsync("href");
+    ///     }
+    ///     
+    ///     // Don't forget to close
+    ///     await page.CloseAsync();
+    /// }
+    /// else
+    /// {
+    ///     // Fallback for HTTP-only clients
+    ///     var html = await networkClient.GetHtmlAsync("https://dynamic-site.com", ct);
+    ///     // Parse static HTML content
+    /// }
+    /// </example>
     Task<IPage?> OpenPageAsync(string url, CancellationToken ct);
 }

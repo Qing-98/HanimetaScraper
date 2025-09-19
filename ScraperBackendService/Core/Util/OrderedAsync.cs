@@ -5,7 +5,7 @@ namespace ScraperBackendService.Core.Util;
 public static class OrderedAsync
 {
     /// <summary>
-    /// 并发执行任务，并保持结果顺序。
+    /// Execute tasks concurrently while maintaining result order.
     /// </summary>
     public static async Task<List<TOut>> ForEachAsync<TIn, TOut>(
         IReadOnlyList<TIn> items,

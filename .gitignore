@@ -90,3 +90,8 @@ ehthumbs.db
 .env.test.local
 .env.production.local
 
+# ======================
+# Ignore Vim backup files
+# ======================
+*~
+

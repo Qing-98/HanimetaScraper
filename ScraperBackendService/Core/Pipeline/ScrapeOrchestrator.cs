@@ -7,10 +7,10 @@ using ScraperBackendService.Models;
 namespace ScraperBackendService.Core.Pipeline;
 
 /// <summary>
-/// 统一的抓取编排器：
-/// - 根据 ScrapeRoute (Auto/ById/ByFilename) 决定走哪条路
-/// - 负责关键词清洗 / 并发抓详情 / 保持结果顺序
-/// - 上层（Jellyfin 插件或 API 控制器）只需要调用 FetchAsync
+/// Unified scrape orchestrator:
+/// - Decides which path to take based on ScrapeRoute (Auto/ById/ByFilename)
+/// - Responsible for keyword cleaning / concurrent detail fetching / maintaining result order
+/// - Upper layer (Jellyfin plugin or API controller) only needs to call FetchAsync
 /// </summary>
 public sealed class ScrapeOrchestrator
 {
@@ -35,7 +35,7 @@ public sealed class ScrapeOrchestrator
         {
             case ScrapeRoute.ById:
                 if (!_provider.TryParseId(input, out var id))
-                    throw new ArgumentException($"按ID解析失败：{input}");
+                    throw new ArgumentException($"ID parsing failed: {input}");
                 return await FetchByIdAsync(id, ct);
 
             case ScrapeRoute.ByFilename:
@@ -70,17 +70,15 @@ public sealed class ScrapeOrchestrator
             var m = await _provider.FetchDetailAsync(h.DetailUrl, ct);
             if (m == null) return null;
 
-            // 用搜索结果补全
-            if (!string.IsNullOrWhiteSpace(h.Title) && string.IsNullOrWhiteSpace(m.Title))
+            // Use search results to fill missing fields
+            if (string.IsNullOrWhiteSpace(m.Title) && !string.IsNullOrWhiteSpace(h.Title))
                 m.Title = h.Title;
-            if (!string.IsNullOrWhiteSpace(h.CoverUrl) && string.IsNullOrWhiteSpace(m.Primary))
+            if (string.IsNullOrWhiteSpace(m.Primary) && !string.IsNullOrWhiteSpace(h.CoverUrl))
                 m.Primary = h.CoverUrl;
-            if (!m.SourceUrls.Contains(h.DetailUrl))
-                m.SourceUrls.Add(h.DetailUrl);
 
             return m;
         });
 
-        return results;
+        return results.Where(m => m != null).ToList()!;
     }
 }

@@ -1,42 +1,44 @@
 using HtmlAgilityPack;
-using System.Text;
+using ScraperBackendService.Core.Util;
 using System.Net;
+using System.Text;
 using System.Linq;
 
 namespace ScraperBackendService.Core.Parsing;
 
+/// <summary>
+/// HtmlAgilityPack extension utilities
+/// </summary>
 public static class HtmlEx
 {
-    public static HtmlNode? SelectSingle(HtmlDocument d, string xp)
-        => d.DocumentNode.SelectSingleNode(xp);
+    public static HtmlNode? SelectSingle(HtmlDocument doc, string xpath)
+        => ScrapingUtils.SelectSingle(doc, xpath);
 
-    public static IEnumerable<HtmlNode> SelectNodes(HtmlDocument d, string xp)
-        => d.DocumentNode.SelectNodes(xp) ?? Enumerable.Empty<HtmlNode>();  // ★ 返回 IEnumerable
-    public static string? GetAttrOrNull(HtmlNode? n, string name)
-    => n?.Attributes[name]?.Value;
+    public static IEnumerable<HtmlNode> SelectNodes(HtmlDocument doc, string xpath)
+        => ScrapingUtils.SelectNodes(doc, xpath) ?? Enumerable.Empty<HtmlNode>();
 
-    public static string SelectText(HtmlDocument d, string xp)
-        => d.DocumentNode.SelectSingleNode(xp)?.InnerText?.Trim() ?? "";
+    public static string SelectText(HtmlDocument doc, string xpath)
+        => ScrapingUtils.SelectText(doc, xpath);
 
-    public static string GetAttr(HtmlNode? n, string name)
-        => n?.GetAttributeValue(name, "") ?? "";
+    public static string GetAttr(HtmlNode? node, string attributeName)
+        => ScrapingUtils.GetAttr(node, attributeName);
 
-    public static string ExtractOutlineCell(HtmlDocument d, string xp, Func<string, string>? cleaner = null)
+    /// <summary>
+    /// Extract text from table cell, prefer link text
+    /// </summary>
+    public static string ExtractOutlineCell(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)
     {
-        var td = d.DocumentNode.SelectSingleNode(xp);
-        if (td == null) return "";
-        var a1 = td.SelectSingleNode(".//a[1]");
-        var raw = a1?.InnerText ?? td.InnerText;
-        return (cleaner?.Invoke(raw) ?? raw).Trim();
+        var result = ScrapingUtils.ExtractOutlineCell(doc, xpath);
+        return cleaner?.Invoke(result) ?? result;
     }
 
-    public static string ExtractOutlineCellPreferA(HtmlDocument d, string xp, Func<string, string>? cleaner = null)
+    /// <summary>
+    /// Extract text from table cell, prefer any link text
+    /// </summary>
+    public static string ExtractOutlineCellPreferA(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)
     {
-        var td = d.DocumentNode.SelectSingleNode(xp);
-        if (td == null) return "";
-        var a = td.SelectSingleNode(".//a");
-        var raw = a?.InnerText ?? td.InnerText;
-        return (cleaner?.Invoke(raw) ?? raw).Trim();
+        var result = ScrapingUtils.ExtractOutlineCellPreferA(doc, xpath);
+        return cleaner?.Invoke(result) ?? result;
     }
 
     public static string TextWithBr(HtmlNode n)

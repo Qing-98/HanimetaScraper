@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.HanimeScrap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScraperBackendService", "ScraperBackendService\ScraperBackendService.csproj", "{33333333-3333-3333-3333-333333333333}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScraperConsoleTest", "Test\ScraperConsoleTest\ScraperConsoleTest.csproj", "{E71191C6-CFD0-5E05-A710-54BC8D86989A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewScraperTest", "Test\NewScraperTest\NewScraperTest.csproj", "{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,10 +29,10 @@ Global
 		{33333333-3333-3333-3333-333333333333}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33333333-3333-3333-3333-333333333333}.Release|Any CPU.ActiveCfg = Debug|Any CPU
 		{33333333-3333-3333-3333-333333333333}.Release|Any CPU.Build.0 = Debug|Any CPU
-		{E71191C6-CFD0-5E05-A710-54BC8D86989A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E71191C6-CFD0-5E05-A710-54BC8D86989A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E71191C6-CFD0-5E05-A710-54BC8D86989A}.Release|Any CPU.ActiveCfg = Debug|Any CPU
-		{E71191C6-CFD0-5E05-A710-54BC8D86989A}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

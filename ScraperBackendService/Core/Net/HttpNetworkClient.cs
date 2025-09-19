@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using ScraperBackendService.Core.Abstractions;
 
 namespace ScraperBackendService.Core.Net;
@@ -9,15 +10,18 @@ namespace ScraperBackendService.Core.Net;
 public sealed class HttpNetworkClient : INetworkClient, IDisposable
 {
     private readonly HttpClient _http;
+    private readonly ILogger<HttpNetworkClient> _logger;
 
-    // 复用 SocketsHttpHandler 的高性能默认
-    public HttpNetworkClient(HttpClient? httpClient = null)
+    // Reuse SocketsHttpHandler's high-performance defaults
+    public HttpNetworkClient(ILogger<HttpNetworkClient> logger, HttpClient? httpClient = null)
     {
+        _logger = logger;
         _http = httpClient ?? CreateDefaultClient();
     }
 
     public async Task<string> GetHtmlAsync(string url, CancellationToken ct)
     {
+        _logger.LogDebug("Getting HTML from: {Url}", url);
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         resp.EnsureSuccessStatusCode();
@@ -26,13 +30,14 @@ public sealed class HttpNetworkClient : INetworkClient, IDisposable
 
     public async Task<JsonDocument> GetJsonAsync(string url, IDictionary<string, string>? headers, CancellationToken ct)
     {
+        _logger.LogDebug("Getting JSON from: {Url}", url);
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         if (headers != null)
         {
             foreach (var kv in headers)
             {
-                // 一些常见头在强类型集合里，需要分流
+                // Some common headers are in strongly-typed collections and need to be routed
                 if (string.Equals(kv.Key, "Referer", StringComparison.OrdinalIgnoreCase))
                     req.Headers.Referrer = new Uri(kv.Value);
                 else
@@ -46,9 +51,12 @@ public sealed class HttpNetworkClient : INetworkClient, IDisposable
         return await JsonDocument.ParseAsync(s, cancellationToken: ct);
     }
 
-    // Http 版本不提供 Page
+    // HTTP version does not provide Page
     public Task<Microsoft.Playwright.IPage?> OpenPageAsync(string url, CancellationToken ct)
-        => Task.FromResult<Microsoft.Playwright.IPage?>(null);
+    {
+        _logger.LogDebug("OpenPageAsync called on HttpNetworkClient - returning null (use PlaywrightNetworkClient for page support)");
+        return Task.FromResult<Microsoft.Playwright.IPage?>(null);
+    }
 
     public void Dispose() => _http.Dispose();
 

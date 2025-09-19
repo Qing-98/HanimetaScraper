@@ -10,29 +10,29 @@ namespace ScraperBackendService.AntiCloudflare
 {
     public enum ContextIsolationMode
     {
-        Shared,            // 搜索与详情共用同一个 Context（默认）
-        SplitSearchDetail  // 搜索与详情分离，详情 Context 可单独轮换
+        Shared,            // Search and detail share the same context (default)
+        SplitSearchDetail  // Search and detail are separated, detail context can be rotated independently
     }
 
     public sealed class ScrapeRuntimeOptions
     {
-        // —— 轮换条件 ——
-        public int ContextTtlMinutes { get; set; } = 8;     // TTL 到期轮换
-        public int MaxPagesPerContext { get; set; } = 50;   // 一个 Context 内最多开多少 Page
+        // —— Rotation Conditions ——
+        public int ContextTtlMinutes { get; set; } = 8;     // TTL expiration rotation
+        public int MaxPagesPerContext { get; set; } = 50;   // Maximum pages per context
         public bool RotateOnChallengeDetected { get; set; } = true;
 
-        // —— 隔离策略 ——
+        // —— Isolation Strategy ——
         public ContextIsolationMode IsolationMode { get; set; } = ContextIsolationMode.Shared;
 
-        // —— 慢速重试参数（供上层用） ——
+        // —— Slow Retry Parameters (for upper layer use) ——
         public int SlowRetryGotoTimeoutMs { get; set; } = 90000;
         public int SlowRetryWaitSelectorMs { get; set; } = 15000;
 
-        // —— Cloudflare/Challenge 识别提示 —— 
+        // —— Cloudflare/Challenge Recognition Hints —— 
         public string[] ChallengeUrlHints { get; set; } = new[] { "challenge", "cf-challenge", "cloudflare", "/cdn-cgi/" };
         public string[] ChallengeDomHints { get; set; } = new[] { "cf-challenge", "#challenge-form", "Just a moment", "Verifying you are human" };
 
-        // —— 基础指纹配置 —— 
+        // —— Basic Fingerprint Configuration —— 
         public string UserAgent { get; set; } =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
         public int ViewportWidth { get; set; } = 1280;
@@ -42,14 +42,14 @@ namespace ScraperBackendService.AntiCloudflare
         public string AcceptLanguage { get; set; } = "zh-CN,zh;q=0.9";
         public string? StealthInitRelativePath { get; set; } = Path.Combine("AntiCloudflare", "StealthInit.js");
 
-        // 页面就绪判断：依次等待这些选择器出现；为 null/空时退回等 "body"
+        // Page ready determination: wait for these selectors in sequence; fallback to "body" when null/empty
         public string[]? ReadySelectors { get; set; }
 
     }
 
 
     /// <summary>
-    /// 负责创建/复用/轮换 Playwright 的 BrowserContext（含搜索/详情隔离）。
+    /// Responsible for creating/reusing/rotating Playwright BrowserContext (including search/detail isolation).
     /// </summary>
     public class PlaywrightContextManager
     {
@@ -57,13 +57,13 @@ namespace ScraperBackendService.AntiCloudflare
         private readonly ILogger _logger;
         private readonly ScrapeRuntimeOptions _opt;
 
-        // Shared 模式
+        // Shared mode
         private IBrowserContext? _sharedCtx;
         private DateTime _sharedBirth = DateTime.MinValue;
         private int _sharedOpenedPages = 0;
         private volatile bool _sharedFlagged = false;
 
-        // Split 模式
+        // Split mode
         private IBrowserContext? _searchCtx;
         private DateTime _searchBirth = DateTime.MinValue;
         private int _searchOpenedPages = 0;
@@ -81,7 +81,7 @@ namespace ScraperBackendService.AntiCloudflare
             _opt = opt ?? new ScrapeRuntimeOptions();
         }
 
-        /// <summary>对外：拿到可用的 Context；forDetail 表示拿“详情用”的 Context。</summary>
+        /// <summary>External API: get available context; forDetail indicates getting "detail-use" context.</summary>
         public async Task<IBrowserContext> GetOrCreateContextAsync(bool forDetail)
         {
             if (_opt.IsolationMode == ContextIsolationMode.Shared)
@@ -131,7 +131,7 @@ namespace ScraperBackendService.AntiCloudflare
             }
         }
 
-        /// <summary>统计：每开一个 Page 调用一次。</summary>
+        /// <summary>Statistics: call once for each page opened.</summary>
         public void BumpOpenedPages(IBrowserContext ctx, bool forDetail)
         {
             if (_opt.IsolationMode == ContextIsolationMode.Shared)
@@ -145,7 +145,7 @@ namespace ScraperBackendService.AntiCloudflare
             }
         }
 
-        /// <summary>标记当前上下文遇到挑战（触发后续轮换）。</summary>
+        /// <summary>Mark current context as encountering challenge (triggers subsequent rotation).</summary>
         public void FlagChallengeOnCurrent(bool forDetail)
         {
             if (_opt.IsolationMode == ContextIsolationMode.Shared)
@@ -182,7 +182,7 @@ namespace ScraperBackendService.AntiCloudflare
                 { "Accept-Language", _opt.AcceptLanguage }
             });
 
-            // 注入 Stealth 脚本（可选）
+            // Inject Stealth script (optional)
             try
             {
                 if (!string.IsNullOrWhiteSpace(_opt.StealthInitRelativePath))
