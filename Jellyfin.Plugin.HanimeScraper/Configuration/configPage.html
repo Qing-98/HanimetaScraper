@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hanime Scraper Configuration</title>
+</head>
+<body>
+    <div id="HanimeScraperConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="HanimeScraperConfigForm">
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtBackendUrl">Backend URL:</label>
+                        <input is="emby-input" type="text" id="txtBackendUrl" name="BackendUrl" />
+                        <div class="fieldDescription">The URL of the scraper backend service (e.g., http://127.0.0.1:8585)</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtApiToken">API Token (Optional):</label>
+                        <input is="emby-input" type="text" id="txtApiToken" name="ApiToken" />
+                        <div class="fieldDescription">Optional API token for authentication with the backend service</div>
+                    </div>
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        // Defensive polyfill: some browsers/Jellyfin code may call element.scrollTo({behavior: null})
+        (function () {
+            try {
+                var origScrollTo = Element.prototype.scrollTo;
+                Element.prototype.scrollTo = function (optionsOrX, y) {
+                    try {
+                        if (optionsOrX && typeof optionsOrX === 'object') {
+                            if (optionsOrX.behavior == null) optionsOrX = Object.assign({}, optionsOrX, { behavior: 'auto' });
+                            return origScrollTo.call(this, optionsOrX);
+                        }
+                    } catch (e) {
+                    }
+                    return origScrollTo.call(this, optionsOrX, y);
+                };
+            } catch (e) {
+            }
+
+            window.addEventListener('unhandledrejection', function (ev) {
+                try {
+                    console.warn('Unhandled promise rejection (suppressed):', ev.reason);
+                    if (ev.preventDefault) ev.preventDefault();
+                } catch (e) { }
+            });
+        })();
+
+        (function () {
+            var pluginId = "22222222-aaaa-bbbb-cccc-222222222222";
+            var sessionKey = 'pluginConfig.' + pluginId;
+            var localKey = 'pluginConfig.local.' + pluginId;
+
+            function readFallback() {
+                try {
+                    var s = sessionStorage.getItem(sessionKey);
+                    if (s) return JSON.parse(s);
+                } catch (e) {}
+                try {
+                    var l = localStorage.getItem(localKey);
+                    if (l) return JSON.parse(l);
+                } catch (e) {}
+                return null;
+            }
+
+            function saveFallback(obj) {
+                try { sessionStorage.setItem(sessionKey, JSON.stringify(obj)); } catch (e) {}
+                try { localStorage.setItem(localKey, JSON.stringify(obj)); } catch (e) {}
+            }
+
+            function clearFallback() {
+                try { sessionStorage.removeItem(sessionKey); } catch (e) {}
+                try { localStorage.removeItem(localKey); } catch (e) {}
+            }
+
+            function setInputValue(el, v) {
+                try {
+                    el.value = v || '';
+                    if (v == null) v = '';
+                    el.setAttribute('value', v);
+                    var ev = new Event('input', { bubbles: true });
+                    el.dispatchEvent(ev);
+                    var ev2 = new Event('change', { bubbles: true });
+                    el.dispatchEvent(ev2);
+                } catch (e) { }
+            }
+
+            function populateInputs(config) {
+                var backend = config && config.BackendUrl ? config.BackendUrl : null;
+                var token = config && config.ApiToken ? config.ApiToken : null;
+
+                if (!backend) {
+                    var fb = readFallback();
+                    if (fb) {
+                        backend = backend || fb.BackendUrl;
+                        token = token || fb.ApiToken;
+                    }
+                }
+
+                setInputValue(document.querySelector('#txtBackendUrl'), backend || 'http://127.0.0.1:8585');
+                setInputValue(document.querySelector('#txtApiToken'), token || '');
+            }
+
+            document.querySelector('#HanimeScraperConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        console.debug('getPluginConfiguration response:', config);
+                        populateInputs(config);
+                        clearFallback();
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function (err) {
+                        console.warn('getPluginConfiguration failed, using fallback', err);
+                        populateInputs(null);
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#HanimeScraperConfigForm')
+                .addEventListener('submit', function (e) {
+                    Dashboard.showLoadingMsg();
+                    e.preventDefault();
+
+                    var newConfig = {
+                        BackendUrl: document.querySelector('#txtBackendUrl').value,
+                        ApiToken: document.querySelector('#txtApiToken').value
+                    };
+
+                    saveFallback(newConfig);
+
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        console.debug('current config before update:', config);
+                        config.BackendUrl = newConfig.BackendUrl;
+                        config.ApiToken = newConfig.ApiToken;
+
+                        return ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            console.debug('updatePluginConfiguration result:', result);
+                            return result;
+                        });
+                    }).then(function (result) {
+                        return ApiClient.getPluginConfiguration(pluginId);
+                    }).then(function (savedConfig) {
+                        console.debug('re-fetched saved config:', savedConfig);
+                        populateInputs(savedConfig);
+                        clearFallback();
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function (err) {
+                        console.warn('error during save sequence', err);
+                        Dashboard.hideLoadingMsg();
+                    });
+
+                    return false;
+                });
+        })();
+    </script>
+</body>
+</html>

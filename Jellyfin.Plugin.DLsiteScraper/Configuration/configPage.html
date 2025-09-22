@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DLsite Scraper Configuration</title>
+</head>
+<body>
+    <div id="DLsiteScraperConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="DLsiteScraperConfigForm">
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtBackendUrl">Backend URL:</label>
+                        <input is="emby-input" type="text" id="txtBackendUrl" name="BackendUrl" />
+                        <div class="fieldDescription">The URL of the scraper backend service (e.g., http://127.0.0.1:8585)</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtApiToken">API Token (Optional):</label>
+                        <input is="emby-input" type="text" id="txtApiToken" name="ApiToken" />
+                        <div class="fieldDescription">Optional API token for authentication with the backend service</div>
+                    </div>
+                    <br />
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        // Defensive polyfill: some browsers/Jellyfin code may call element.scrollTo({behavior: null})
+        (function () {
+            try {
+                var origScrollTo = Element.prototype.scrollTo;
+                Element.prototype.scrollTo = function (optionsOrX, y) {
+                    try {
+                        if (optionsOrX && typeof optionsOrX === 'object') {
+                            // Normalize null/undefined behavior to 'auto'
+                            if (optionsOrX.behavior == null) optionsOrX = Object.assign({}, optionsOrX, { behavior: 'auto' });
+                            return origScrollTo.call(this, optionsOrX);
+                        }
+                    } catch (e) {
+                        // fallthrough to original call
+                    }
+                    return origScrollTo.call(this, optionsOrX, y);
+                };
+            } catch (e) {
+                // ignore
+            }
+
+            window.addEventListener('unhandledrejection', function (ev) {
+                try {
+                    console.warn('Unhandled promise rejection (suppressed):', ev.reason);
+                    if (ev.preventDefault) ev.preventDefault();
+                } catch (e) { }
+            });
+        })();
+
+        (function () {
+            var pluginId = "11111111-aaaa-bbbb-cccc-111111111111";
+            var sessionKey = 'pluginConfig.' + pluginId;
+            var localKey = 'pluginConfig.local.' + pluginId;
+
+            function readFallback() {
+                try {
+                    var s = sessionStorage.getItem(sessionKey);
+                    if (s) return JSON.parse(s);
+                } catch (e) {}
+                try {
+                    var l = localStorage.getItem(localKey);
+                    if (l) return JSON.parse(l);
+                } catch (e) {}
+                return null;
+            }
+
+            function saveFallback(obj) {
+                try { sessionStorage.setItem(sessionKey, JSON.stringify(obj)); } catch (e) {}
+                try { localStorage.setItem(localKey, JSON.stringify(obj)); } catch (e) {}
+            }
+
+            function clearFallback() {
+                try { sessionStorage.removeItem(sessionKey); } catch (e) {}
+                try { localStorage.removeItem(localKey); } catch (e) {}
+            }
+
+            function setInputValue(el, v) {
+                try {
+                    el.value = v || '';
+                    // Also set attribute so some custom components pick it up
+                    if (v == null) v = '';
+                    el.setAttribute('value', v);
+                    // Dispatch events for frameworks/custom elements to update internal state
+                    var ev = new Event('input', { bubbles: true });
+                    el.dispatchEvent(ev);
+                    var ev2 = new Event('change', { bubbles: true });
+                    el.dispatchEvent(ev2);
+                } catch (e) { /* ignore */ }
+            }
+
+            function populateInputs(config) {
+                // Prefer explicit config values; if missing, try session/local fallback
+                var backend = config && config.BackendUrl ? config.BackendUrl : null;
+                var token = config && config.ApiToken ? config.ApiToken : null;
+
+                if (!backend) {
+                    var fb = readFallback();
+                    if (fb) {
+                        backend = backend || fb.BackendUrl;
+                        token = token || fb.ApiToken;
+                    }
+                }
+
+                setInputValue(document.querySelector('#txtBackendUrl'), backend || 'http://127.0.0.1:8585');
+                setInputValue(document.querySelector('#txtApiToken'), token || '');
+            }
+
+            document.querySelector('#DLsiteScraperConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        console.debug('getPluginConfiguration response:', config);
+                        populateInputs(config);
+                        clearFallback();
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function (err) {
+                        console.warn('getPluginConfiguration failed, using fallback', err);
+                        populateInputs(null);
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#DLsiteScraperConfigForm')
+                .addEventListener('submit', function (e) {
+                    Dashboard.showLoadingMsg();
+                    e.preventDefault();
+
+                    var newConfig = {
+                        BackendUrl: document.querySelector('#txtBackendUrl').value,
+                        ApiToken: document.querySelector('#txtApiToken').value
+                    };
+
+                    // Save fallback to survive the automatic refresh
+                    saveFallback(newConfig);
+
+                    // Fetch current config, update it, then save
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        console.debug('current config before update:', config);
+                        config.BackendUrl = newConfig.BackendUrl;
+                        config.ApiToken = newConfig.ApiToken;
+
+                        return ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            console.debug('updatePluginConfiguration result:', result);
+                            // Do not call Dashboard.processPluginConfigurationUpdateResult to avoid automatic page reload
+                            return result;
+                        });
+                    }).then(function (result) {
+                        // After update, re-fetch saved config to ensure UI shows persisted values
+                        return ApiClient.getPluginConfiguration(pluginId);
+                    }).then(function (savedConfig) {
+                        console.debug('re-fetched saved config:', savedConfig);
+                        populateInputs(savedConfig);
+                        clearFallback();
+                        Dashboard.hideLoadingMsg();
+                    }).catch(function (err) {
+                        console.warn('error during save sequence', err);
+                        // On any error, hide loading so user can retry, fallback remains for reload
+                        Dashboard.hideLoadingMsg();
+                    });
+
+                    return false;
+                });
+        })();
+    </script>
+</body>
+</html>

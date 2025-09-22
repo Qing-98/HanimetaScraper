@@ -1,14 +1,42 @@
-<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <CodeAnalysisRuleSet>jellyfin.ruleset</CodeAnalysisRuleSet>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>Jellyfin.Plugin.HanimeScraper</AssemblyName>
-    <FileUpgradeFlags>40</FileUpgradeFlags>
-    <UpgradeBackupLocation>D:\Project\Jellyfin.plugin.Hanimeta\Backup\Jellyfin.Plugin.HanimeScraper\</UpgradeBackupLocation>
-    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Jellyfin.Controller" Version="10.*" />
     <PackageReference Include="Jellyfin.Model" Version="10.*" />
+    <PackageReference Include="Jellyfin.Data" Version="10.*" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.507">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="jellyfin.ruleset" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\configPage.html" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server\plugins')">
+    <MakeDir Directories="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.HanimeScraper" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.HanimeScraper" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.HanimeScraper" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    <Copy SourceFiles="$(TargetDir)manifest.json" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.HanimeScraper" Condition="Exists('$(TargetDir)manifest.json')" />
+  </Target>
 </Project>

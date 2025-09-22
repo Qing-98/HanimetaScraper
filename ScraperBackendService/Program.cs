@@ -103,6 +103,21 @@ app.MapGet("/", () =>
 
 app.MapGet("/health", () => Results.Json(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
+// Add redirect endpoint for DLsite external links
+app.MapGet("/r/dlsite/{id}", (string id) =>
+{
+    try
+    {
+        var target = ScraperBackendService.Core.Routing.IdParsers.BuildDlsiteDetailUrl(id);
+        return Results.Redirect(target);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Failed to build DLsite redirect for id={Id}", id);
+        return Results.NotFound();
+    }
+});
+
 // =============== Hanime API Endpoints ===============
 
 /// <summary>

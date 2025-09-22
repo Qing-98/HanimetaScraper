@@ -28,9 +28,22 @@ public static class IdParsers
     public static string BuildDlsiteDetailUrl(string id, bool preferManiax = true)
     {
         id = id.Trim().ToUpperInvariant();
-        var template = preferManiax 
+
+        // If ID clearly indicates site by prefix, choose accordingly
+        // VJ-prefixed IDs are served under the "pro" section; RJ are typically under "maniax"
+        var template = preferManiax
             ? "https://www.dlsite.com/maniax/work/=/product_id/{0}.html"
             : "https://www.dlsite.com/pro/work/=/product_id/{0}.html";
+
+        if (id.StartsWith("VJ", StringComparison.OrdinalIgnoreCase))
+        {
+            template = "https://www.dlsite.com/pro/work/=/product_id/{0}.html";
+        }
+        else if (id.StartsWith("RJ", StringComparison.OrdinalIgnoreCase))
+        {
+            template = "https://www.dlsite.com/maniax/work/=/product_id/{0}.html";
+        }
+
         return string.Format(CultureInfo.InvariantCulture, template, id);
     }
 }

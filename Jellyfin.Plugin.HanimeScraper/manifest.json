@@ -1,0 +1,19 @@
+{
+  "guid": "22222222-aaaa-bbbb-cccc-222222222222",
+  "name": "Hanime Scraper",
+  "description": "Hanime metadata provider with backend scraper service",
+  "overview": "Provides metadata for Hanime content using a backend scraper service",
+  "owner": "HanimeScraperTeam",
+  "category": "Metadata",
+  "imageUrl": "",
+  "versions": [
+    {
+      "version": "1.0.0.0",
+      "changelog": "Initial release with configuration support",
+      "targetAbi": "10.8.0.0",
+      "sourceUrl": "",
+      "checksum": "",
+      "timestamp": ""
+    }
+  ]
+}
