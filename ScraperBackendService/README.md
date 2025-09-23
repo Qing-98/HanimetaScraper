@@ -1,33 +1,34 @@
 # Scraper Backend Service
 
-A comprehensive web scraping service for adult content metadata extraction from multiple providers. Built with .NET 8 and designed for integration with Jellyfin media server.
+[中文](README.zh.md) | [English](README.md)
+
+A comprehensive web scraping backend service designed for metadata extraction of adult animation and similar content, supporting multiple providers. Built with .NET 8, designed for integration with Jellyfin media server.
 
 ## 🚀 Features
 
 ### Multi-Provider Support
-- **Hanime Provider**: Playwright-based scraping for dynamic JavaScript content
-- **DLsite Provider**: HTTP-based scraping for efficient static content extraction
-- **Extensible Architecture**: Easy to add new content providers
+- **Hanime Provider**: Playwright-based dynamic JavaScript content scraping
+- **DLsite Provider**: Efficient HTTP-based static content scraping
+- **Extensible Architecture**: Easily add new content providers
 
 ### Advanced Scraping Capabilities
-- **Dual Network Clients**: HTTP and Playwright-based approaches for different content types
-- **Anti-Bot Protection**: Built-in mechanisms to handle Cloudflare and other anti-bot measures
-- **Context Management**: Intelligent browser context reuse and rotation
+- **Dual Network Clients**: HTTP and Playwright for different content types
+- **Anti-Bot Protection**: Built-in handling for Cloudflare and other anti-bot mechanisms
+- **Context Management**: Smart browser context reuse and rotation
 - **Concurrent Processing**: Configurable concurrent request handling
 - **Retry Logic**: Robust error handling and retry mechanisms
 
 ### Comprehensive Metadata Extraction
-- **Basic Information**: Title, description, ID, ratings, release dates
-- **Media Assets**: Primary images, backdrops, thumbnails with automatic deduplication
+- **Basic Info**: Title, description, ID, rating, release date
+- **Media Assets**: Primary image, backdrop, thumbnails with deduplication
 - **Personnel**: Cast and crew with role mapping (Japanese → English)
-- **Categorization**: Genres, studios, series information
-- **Rich Text**: HTML-aware description processing
+- **Classification**: Genres, studios, series
 
 ### Production-Ready Features
 - **RESTful API**: Clean HTTP API with standardized response format
 - **Authentication**: Optional token-based authentication
-- **Configuration**: Flexible configuration via appsettings.json and environment variables
-- **Logging**: Comprehensive logging with configurable levels
+- **Configuration**: Flexible via appsettings.json and environment variables
+- **Logging**: Configurable comprehensive logging
 - **Health Checks**: Built-in health monitoring endpoints
 - **Timeout Management**: Configurable request timeouts
 - **Rate Limiting**: Concurrent request throttling
@@ -61,7 +62,7 @@ pwsh bin/Debug/net8.0/playwright.ps1 install
 dotnet run
 ```
 
-The service will start on `http://localhost:8585` by default.
+The service will start at `http://localhost:8585` by default.
 
 ## ⚙️ Configuration
 
@@ -276,7 +277,6 @@ ScraperBackendService/
 public class MyProvider : IMediaProvider
 {
     public string Name => "MyProvider";
-    
     public bool TryParseId(string input, out string id) { ... }
     public string BuildDetailUrlById(string id) { ... }
     public async Task<IReadOnlyList<SearchHit>> SearchAsync(...) { ... }
@@ -316,85 +316,9 @@ Choose from interactive test options:
 4. Backend API integration test
 5. Concurrent load test
 
-## 🐳 Deployment
-
-### Docker (Recommended)
-
-Create a `Dockerfile`:
-```dockerfile
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 8585
-
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ScraperBackendService/ScraperBackendService.csproj", "ScraperBackendService/"]
-RUN dotnet restore "ScraperBackendService/ScraperBackendService.csproj"
-COPY . .
-WORKDIR "/src/ScraperBackendService"
-RUN dotnet build "ScraperBackendService.csproj" -c Release -o /app/build
-
-FROM build AS publish
-RUN dotnet publish "ScraperBackendService.csproj" -c Release -o /app/publish
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-
-# Install Playwright dependencies
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Playwright browsers
-RUN dotnet ScraperBackendService.dll --install-playwright-deps || true
-
-ENTRYPOINT ["dotnet", "ScraperBackendService.dll"]
-```
-
-### Production Configuration
-
-For production, use `appsettings.Production.json`:
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Warning",
-      "ScraperBackendService": "Information"
-    }
-  },
-  "ServiceConfig": {
-    "Port": 8585,
-    "Host": "0.0.0.0",
-    "AuthToken": "your-production-token",
-    "EnableDetailedLogging": false,
-    "MaxConcurrentRequests": 5,
-    "RequestTimeoutSeconds": 120
-  }
-}
-```
-
-### Reverse Proxy (Nginx)
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    
-    location / {
-        proxy_pass http://localhost:8585;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
 ## 🔗 Jellyfin Integration
 
-This service is designed to work with Jellyfin media server through custom metadata plugins. The plugins communicate with this backend service via the REST API.
+This service is designed to work with Jellyfin media server through custom metadata plugins. Plugins communicate with this backend service via REST API.
 
 ### Plugin Configuration
 1. Install the companion Jellyfin plugins
@@ -431,13 +355,6 @@ Log configuration in `appsettings.json`:
 - Configurable token header name
 - Public endpoints: `/`, `/health`
 - Protected endpoints: `/api/*`
-
-### Best Practices
-1. Use strong authentication tokens in production
-2. Enable HTTPS with reverse proxy
-3. Configure appropriate CORS policies
-4. Monitor request logs for suspicious activity
-5. Use rate limiting to prevent abuse
 
 ## 🚨 Troubleshooting
 
@@ -507,14 +424,3 @@ For issues and questions:
 2. Search existing GitHub issues
 3. Create a new issue with detailed information
 4. Include logs and configuration (remove sensitive data)
-
-## 🔄 Changelog
-
-### Version 2.0.0
-- Complete rewrite with .NET 8
-- Multi-provider architecture
-- Enhanced error handling and retry logic
-- Comprehensive English documentation
-- Production-ready configuration
-- Docker support
-- Performance optimizations

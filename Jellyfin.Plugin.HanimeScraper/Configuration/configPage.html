@@ -18,6 +18,13 @@
                         <input is="emby-input" type="text" id="txtApiToken" name="ApiToken" />
                         <div class="fieldDescription">Optional API token for authentication with the backend service</div>
                     </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input is="emby-checkbox" type="checkbox" id="chkEnableLogging" />
+                            <span>Enable Logging</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Enable plugin logging to Jellyfin logs</div>
+                    </div>
                     <br />
                     <div>
                         <button is="emby-button" type="submit" class="raised button-submit block">
@@ -93,20 +100,31 @@
                 } catch (e) { }
             }
 
+            function setCheckboxValue(el, v) {
+                try {
+                    el.checked = !!v;
+                    var ev = new Event('change', { bubbles: true });
+                    el.dispatchEvent(ev);
+                } catch (e) { }
+            }
+
             function populateInputs(config) {
                 var backend = config && config.BackendUrl ? config.BackendUrl : null;
                 var token = config && config.ApiToken ? config.ApiToken : null;
+                var enableLogging = config && typeof config.EnableLogging === 'boolean' ? config.EnableLogging : null;
 
                 if (!backend) {
                     var fb = readFallback();
                     if (fb) {
                         backend = backend || fb.BackendUrl;
                         token = token || fb.ApiToken;
+                        enableLogging = enableLogging !== null ? enableLogging : fb.EnableLogging;
                     }
                 }
 
                 setInputValue(document.querySelector('#txtBackendUrl'), backend || 'http://127.0.0.1:8585');
                 setInputValue(document.querySelector('#txtApiToken'), token || '');
+                setCheckboxValue(document.querySelector('#chkEnableLogging'), enableLogging !== null ? enableLogging : true);
             }
 
             document.querySelector('#HanimeScraperConfigPage')
@@ -131,7 +149,8 @@
 
                     var newConfig = {
                         BackendUrl: document.querySelector('#txtBackendUrl').value,
-                        ApiToken: document.querySelector('#txtApiToken').value
+                        ApiToken: document.querySelector('#txtApiToken').value,
+                        EnableLogging: document.querySelector('#chkEnableLogging').checked
                     };
 
                     saveFallback(newConfig);
@@ -140,6 +159,7 @@
                         console.debug('current config before update:', config);
                         config.BackendUrl = newConfig.BackendUrl;
                         config.ApiToken = newConfig.ApiToken;
+                        config.EnableLogging = newConfig.EnableLogging;
 
                         return ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             console.debug('updatePluginConfiguration result:', result);

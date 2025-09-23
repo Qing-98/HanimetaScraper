@@ -14,13 +14,13 @@ public static class PlaywrightResourceUtils
     public static async Task SafeClosePageAsync(IPage? page)
     {
         if (page is null) return;
-        try 
-        { 
-            if (!page.IsClosed) 
-                await page.CloseAsync(); 
-        } 
-        catch 
-        { 
+        try
+        {
+            if (!page.IsClosed)
+                await page.CloseAsync();
+        }
+        catch
+        {
             // Ignore close errors
         }
     }
@@ -40,12 +40,12 @@ public static class PlaywrightResourceUtils
     public static async Task SafeCloseContextAsync(IBrowserContext? context)
     {
         if (context is null) return;
-        try 
-        { 
-            await context.CloseAsync(); 
-        } 
-        catch 
-        { 
+        try
+        {
+            await context.CloseAsync();
+        }
+        catch
+        {
             // Ignore close errors
         }
     }
@@ -56,12 +56,12 @@ public static class PlaywrightResourceUtils
     public static async Task SafeCloseBrowserAsync(IBrowser? browser)
     {
         if (browser is null) return;
-        try 
-        { 
-            await browser.CloseAsync(); 
-        } 
-        catch 
-        { 
+        try
+        {
+            await browser.CloseAsync();
+        }
+        catch
+        {
             // Ignore close errors
         }
     }
@@ -95,10 +95,10 @@ public static class PlaywrightResourceUtils
             UserAgent = options.UserAgent,
             Locale = options.Locale,
             TimezoneId = options.TimezoneId,
-            ViewportSize = new ViewportSize 
-            { 
-                Width = options.ViewportWidth, 
-                Height = options.ViewportHeight 
+            ViewportSize = new ViewportSize
+            {
+                Width = options.ViewportWidth,
+                Height = options.ViewportHeight
             },
             ExtraHTTPHeaders = new Dictionary<string, string>
             {
@@ -116,9 +116,9 @@ public static class PlaywrightResourceUtils
         {
             try
             {
-                await page.Locator(selector).First.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    Timeout = timeoutMs 
+                await page.Locator(selector).First.WaitForAsync(new LocatorWaitForOptions
+                {
+                    Timeout = timeoutMs
                 });
                 return; // Any selector match is sufficient
             }

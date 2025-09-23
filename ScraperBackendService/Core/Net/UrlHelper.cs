@@ -6,15 +6,15 @@ namespace ScraperBackendService.Core.Net;
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Convert relative URL to absolute
 /// var absoluteUrl = UrlHelper.Abs("/path/to/page", "https://example.com");
 /// // Returns: "https://example.com/path/to/page"
-/// 
+///
 /// // Handle protocol-relative URLs
 /// var protocolUrl = UrlHelper.Abs("//cdn.example.com/image.jpg", "https://example.com");
 /// // Returns: "https://cdn.example.com/image.jpg"
-/// 
+///
 /// // Compare URLs for equality
 /// var areEqual = UrlHelper.Eq("https://example.com/PAGE", "https://example.com/page");
 /// // Returns: true (case-insensitive comparison)
@@ -32,19 +32,19 @@ public static class UrlHelper
     /// // Relative path resolution
     /// var url1 = UrlHelper.Abs("/api/data", "https://example.com/page");
     /// // Returns: "https://example.com/api/data"
-    /// 
+    ///
     /// // Protocol-relative URL resolution
     /// var url2 = UrlHelper.Abs("//cdn.example.com/image.jpg", "https://example.com");
     /// // Returns: "https://cdn.example.com/image.jpg"
-    /// 
+    ///
     /// // Already absolute URL (unchanged)
     /// var url3 = UrlHelper.Abs("https://other.com/page", "https://example.com");
     /// // Returns: "https://other.com/page"
-    /// 
+    ///
     /// // Relative path with subdirectory
     /// var url4 = UrlHelper.Abs("../images/photo.jpg", "https://example.com/articles/2024/");
     /// // Returns: "https://example.com/articles/images/photo.jpg"
-    /// 
+    ///
     /// // Empty or invalid input handling
     /// var url5 = UrlHelper.Abs("", "https://example.com");
     /// // Returns: ""
@@ -69,22 +69,22 @@ public static class UrlHelper
     /// // Case-insensitive comparison
     /// var equal1 = UrlHelper.Eq("https://Example.Com/Page", "https://example.com/page");
     /// // Returns: true
-    /// 
+    ///
     /// // Trimming whitespace
     /// var equal2 = UrlHelper.Eq("  https://example.com  ", "https://example.com");
     /// // Returns: true
-    /// 
+    ///
     /// // Different URLs
     /// var equal3 = UrlHelper.Eq("https://example.com/page1", "https://example.com/page2");
     /// // Returns: false
-    /// 
+    ///
     /// // Null/empty handling
     /// var equal4 = UrlHelper.Eq(null, "https://example.com");
     /// // Returns: false
-    /// 
+    ///
     /// var equal5 = UrlHelper.Eq("", "");
     /// // Returns: false
-    /// 
+    ///
     /// // Image URL deduplication use case
     /// var primaryImage = "https://site.com/Cover.JPG";
     /// var thumbnailImage = "https://site.com/cover.jpg";

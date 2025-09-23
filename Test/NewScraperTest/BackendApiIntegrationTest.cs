@@ -27,7 +27,7 @@ public static class BackendApiIntegrationTest
     /// <example>
     /// // Test without authentication
     /// await TestHanimeApiAsync("http://localhost:8585");
-    /// 
+    ///
     /// // Test with authentication token
     /// await TestHanimeApiAsync("http://localhost:8585", "abc123");
     /// </example>
@@ -63,7 +63,7 @@ public static class BackendApiIntegrationTest
     /// <example>
     /// // Test DLsite search with Japanese text
     /// await TestDlsiteApiAsync("http://localhost:8585");
-    /// 
+    ///
     /// // Test with authentication
     /// await TestDlsiteApiAsync("http://localhost:8585", "your-token");
     /// </example>
@@ -100,13 +100,13 @@ public static class BackendApiIntegrationTest
     /// <example>
     /// // Test with default concurrency (5 requests per provider)
     /// await TestConcurrentApiAsync("http://localhost:8585");
-    /// 
+    ///
     /// // Test with high concurrency
     /// await TestConcurrentApiAsync("http://localhost:8585", "token", 20);
     /// </example>
     public static async Task TestConcurrentApiAsync(
-        string backendUrl, 
-        string? token = null, 
+        string backendUrl,
+        string? token = null,
         int concurrentCount = 5)
     {
         using var client = CreateHttpClient(token);

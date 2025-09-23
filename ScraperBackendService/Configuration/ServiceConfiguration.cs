@@ -16,7 +16,7 @@ namespace ScraperBackendService.Configuration;
 ///     "RequestTimeoutSeconds": 120
 ///   }
 /// }
-/// 
+///
 /// Usage in code:
 /// var config = Configuration.GetSection(ServiceConfiguration.SectionName).Get&lt;ServiceConfiguration&gt;();
 /// Console.WriteLine($"Server will listen on {config.Host}:{config.Port}");
@@ -34,7 +34,7 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Listen on custom port
     /// Port = 9090;
-    /// 
+    ///
     /// // Use default port
     /// Port = 8585;
     /// </example>
@@ -46,10 +46,10 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Listen on all interfaces (default)
     /// Host = "0.0.0.0";
-    /// 
+    ///
     /// // Listen on localhost only
     /// Host = "127.0.0.1";
-    /// 
+    ///
     /// // Listen on specific interface
     /// Host = "192.168.1.100";
     /// </example>
@@ -62,10 +62,10 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Disable authentication
     /// AuthToken = null;
-    /// 
+    ///
     /// // Enable token-based authentication
     /// AuthToken = "my-secret-api-token-123";
-    /// 
+    ///
     /// // Client usage:
     /// httpClient.DefaultRequestHeaders.Add("X-API-Token", "my-secret-api-token-123");
     /// </example>
@@ -78,10 +78,10 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Use default header
     /// TokenHeaderName = "X-API-Token";
-    /// 
+    ///
     /// // Use custom header
     /// TokenHeaderName = "Authorization";
-    /// 
+    ///
     /// // Client usage:
     /// httpClient.DefaultRequestHeaders.Add(config.TokenHeaderName, token);
     /// </example>
@@ -94,7 +94,7 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Enable for development/debugging
     /// EnableDetailedLogging = true;
-    /// 
+    ///
     /// // Disable for production (default)
     /// EnableDetailedLogging = false;
     /// </example>
@@ -107,10 +107,10 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Low-resource server
     /// MaxConcurrentRequests = 5;
-    /// 
+    ///
     /// // High-performance server
     /// MaxConcurrentRequests = 50;
-    /// 
+    ///
     /// // Default setting
     /// MaxConcurrentRequests = 10;
     /// </example>
@@ -123,10 +123,10 @@ public sealed class ServiceConfiguration
     /// <example>
     /// // Quick timeout for fast responses
     /// RequestTimeoutSeconds = 30;
-    /// 
+    ///
     /// // Extended timeout for complex scraping
     /// RequestTimeoutSeconds = 180;
-    /// 
+    ///
     /// // Default timeout
     /// RequestTimeoutSeconds = 60;
     /// </example>

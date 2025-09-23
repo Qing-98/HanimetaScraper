@@ -1,19 +1,19 @@
 {
-  "guid": "22222222-aaaa-bbbb-cccc-222222222222",
-  "name": "Hanime Scraper",
-  "description": "Hanime metadata provider with backend scraper service",
-  "overview": "Provides metadata for Hanime content using a backend scraper service",
-  "owner": "HanimeScraperTeam",
+  "guid": "18a03d4c-4691-424c-9fda-fe675ea849c4",
+  "name": "HanimeScraper",
+  "description": "Hanime metadata provider for Jellyfin",
+  "overview": "Jellyfin Hanime metadata plugin, provides rich metadata and images for adult anime content via backend service.",
+  "owner": "Qing-98",
   "category": "Metadata",
   "imageUrl": "",
   "versions": [
     {
       "version": "1.0.0.0",
-      "changelog": "Initial release with configuration support",
+      "changelog": "## What's Changed\\n\\n- Initial release: Hanime metadata scraping support\\n- Search by title, ID, or URL\\n- Rich metadata: actors, rating, images, etc.\\n- API token authentication and logging options\\n- Compatible with Jellyfin 10.8.0 and above\\n",
       "targetAbi": "10.8.0.0",
-      "sourceUrl": "",
-      "checksum": "",
-      "timestamp": ""
+      "sourceUrl": "https://your-domain.com/jellyfin-plugin-hanime/1.0.0.zip",
+      "checksum": "your-zip-sha256-checksum",
+      "timestamp": "2024-06-01T00:00:00Z"
     }
   ]
 }

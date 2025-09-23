@@ -48,7 +48,7 @@ public sealed class HanimeProvider : IMediaProvider
     /// {
     ///     Console.WriteLine($"Extracted ID: {id}"); // Output: "12345"
     /// }
-    /// 
+    ///
     /// // Parse from direct ID
     /// if (provider.TryParseId("86994", out var id2))
     /// {
@@ -106,7 +106,18 @@ public sealed class HanimeProvider : IMediaProvider
 
             // Use Playwright for dynamic content extraction
             var itemLocator = page.Locator("div[title] >> a.overlay");
-            await itemLocator.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 15000 });
+            
+            // Check if any items exist before waiting, with a short timeout
+            try
+            {
+                await itemLocator.First.WaitForAsync(new LocatorWaitForOptions { Timeout = 5000 });
+            }
+            catch (TimeoutException)
+            {
+                // No search results found, return empty list
+                _log.LogInformation("No search results found for keyword: {Keyword}", keyword);
+                return new List<ScraperBackendService.Core.Abstractions.SearchHit>();
+            }
 
             var hits = new List<ScraperBackendService.Core.Abstractions.SearchHit>();
             var baseUri = new Uri(Host);
@@ -138,7 +149,32 @@ public sealed class HanimeProvider : IMediaProvider
                 hits.Add(new ScraperBackendService.Core.Abstractions.SearchHit(detailUrl, TextNormalizer.Clean(title), cover));
             }
 
+            // Log search results
+            if (hits.Count > 0)
+            {
+                _log.LogInformation("[Hanime] Search completed: {Keyword}, found {Count} hits", keyword, hits.Count);
+            }
+            else
+            {
+                _log.LogInformation("[Hanime] Search completed: {Keyword}, no search hits found", keyword);
+            }
+
             return hits;
+        }
+        catch (TimeoutException ex)
+        {
+            // Handle timeout gracefully by falling back to HTML parsing
+            _log.LogWarning("Playwright timeout during search for keyword: {Keyword}, falling back to HTML parsing. Error: {Error}", keyword, ex.Message);
+            try
+            {
+                var html = await _net.GetHtmlAsync(searchUrl, ct);
+                return ParseSearchFromHtml(html, searchUrl, maxResults);
+            }
+            catch (Exception fallbackEx)
+            {
+                _log.LogError(fallbackEx, "Both Playwright and HTML parsing failed for keyword: {Keyword}", keyword);
+                return new List<ScraperBackendService.Core.Abstractions.SearchHit>();
+            }
         }
         finally
         {
@@ -164,18 +200,35 @@ public sealed class HanimeProvider : IMediaProvider
         doc.LoadHtml(html);
 
         var hits = new List<SearchHit>();
-        foreach (var a in ScrapingUtils.SelectNodes(doc, "//a[contains(@class,'overlay') and starts-with(@href,'/watch')]")
-                 ?? Enumerable.Empty<HtmlNode>())
+        var nodes = ScrapingUtils.SelectNodes(doc, "//a[contains(@class,'overlay') and starts-with(@href,'/watch')]");
+        
+        if (nodes == null || !nodes.Any())
         {
-            var href = a.GetAttributeValue("href", "");
-            var detailUrl = new Uri(new Uri(Host), href).AbsoluteUri;
+            // No search results found in HTML
+            return hits;
+        }
 
-            var container = a.SelectSingleNode("ancestor::div[@title][1]");
-            var title = container?.GetAttributeValue("title", "") ?? a.GetAttributeValue("title", "") ?? "";
-            var cover = container?.SelectSingleNode(".//img[@src]")?.GetAttributeValue("src", "") ?? "";
+        foreach (var a in nodes)
+        {
+            try
+            {
+                var href = a.GetAttributeValue("href", "");
+                if (string.IsNullOrWhiteSpace(href)) continue;
 
-            hits.Add(new SearchHit(detailUrl, TextNormalizer.Clean(title), cover));
-            if (maxResults > 0 && hits.Count >= maxResults) break;
+                var detailUrl = new Uri(new Uri(Host), href).AbsoluteUri;
+
+                var container = a.SelectSingleNode("ancestor::div[@title][1]");
+                var title = container?.GetAttributeValue("title", "") ?? a.GetAttributeValue("title", "") ?? "";
+                var cover = container?.SelectSingleNode(".//img[@src]")?.GetAttributeValue("src", "") ?? "";
+
+                hits.Add(new SearchHit(detailUrl, TextNormalizer.Clean(title), cover));
+                if (maxResults > 0 && hits.Count >= maxResults) break;
+            }
+            catch (Exception)
+            {
+                // Skip invalid entries and continue processing
+                continue;
+            }
         }
         return hits;
     }
@@ -263,24 +316,39 @@ public sealed class HanimeProvider : IMediaProvider
     /// <param name="html">HTML content of the detail page</param>
     /// <param name="detailUrl">URL of the detail page</param>
     /// <param name="seed">Optional seed metadata to merge with parsed data</param>
-    /// <returns>Complete metadata object with all extracted information</returns>
+    /// <returns>Complete metadata object with all extracted information, or null if no valid content found</returns>
     /// <example>
     /// var html = await httpClient.GetStringAsync("https://hanime1.me/watch?v=12345");
     /// var metadata = ParseDetailHtml(html, "https://hanime1.me/watch?v=12345", null);
-    /// Console.WriteLine($"Extracted {metadata.Genres.Count} tags");
-    /// Console.WriteLine($"Rating: {metadata.Rating}/5");
+    /// if (metadata != null)
+    /// {
+    ///     Console.WriteLine($"Extracted {metadata.Genres.Count} tags");
+    ///     Console.WriteLine($"Rating: {metadata.Rating}/5");
+    /// }
     /// </example>
-    private HanimeMetadata ParseDetailHtml(string html, string detailUrl, HanimeMetadata? seed)
+    private HanimeMetadata? ParseDetailHtml(string html, string detailUrl, HanimeMetadata? seed)
     {
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
+
+        // First, check if this is a valid Hanime content page
+        // Look for key elements that indicate a valid content page
+        var titleNode = doc.DocumentNode.SelectSingleNode("//h3[@id='shareBtn-title']");
+        var videoPlayer = doc.DocumentNode.SelectSingleNode("//video[@poster]");
+        var tagDivs = doc.DocumentNode.SelectNodes("//div[@class='single-video-tag']");
+
+        // If we don't find any key content indicators, this is likely a 404 or invalid page
+        if (titleNode == null && videoPlayer == null && (tagDivs == null || tagDivs.Count == 0))
+        {
+            _log.LogWarning("No valid Hanime content found at URL: {Url}", detailUrl);
+            return null;
+        }
 
         var meta = seed ?? new HanimeMetadata();
         if (!meta.SourceUrls.Contains(detailUrl)) meta.SourceUrls.Add(detailUrl);
         if (IdParsers.TryExtractHanimeIdFromUrl(detailUrl, out var id)) meta.ID = id;
 
         // Extract title - remove brackets and clean text
-        var titleNode = doc.DocumentNode.SelectSingleNode("//h3[@id='shareBtn-title']");
         if (titleNode != null)
         {
             var raw = titleNode.InnerText.Trim();
@@ -307,11 +375,11 @@ public sealed class HanimeProvider : IMediaProvider
         }
 
         // Extract tags/genres
-        var tagDivs = doc.DocumentNode.SelectNodes("//div[@class='single-video-tag' and not(@data-toggle) and not(@data-target)]");
-        if (tagDivs != null)
+        var tagDivs2 = doc.DocumentNode.SelectNodes("//div[@class='single-video-tag' and not(@data-toggle) and not(@data-target)]");
+        if (tagDivs2 != null)
         {
             var tagSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var div in tagDivs)
+            foreach (var div in tagDivs2)
             {
                 var a = div.SelectSingleNode("./a");
                 string tag;
@@ -357,10 +425,9 @@ public sealed class HanimeProvider : IMediaProvider
         }
 
         // Extract images - focus on video poster only
-        var posterNode = doc.DocumentNode.SelectSingleNode("//video[@poster]");
-        if (posterNode != null)
+        if (videoPlayer != null)
         {
-            var poster = posterNode.GetAttributeValue("poster", "");
+            var poster = videoPlayer.GetAttributeValue("poster", "");
             if (!string.IsNullOrWhiteSpace(poster))
             {
                 // Use the same image as both Primary and Thumbnail

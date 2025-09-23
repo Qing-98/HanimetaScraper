@@ -1,4 +1,4 @@
-﻿namespace ScraperBackendService.Models;
+namespace ScraperBackendService.Models;
 
 /// <summary>
 /// Person data transfer object for representing personnel information.
@@ -6,36 +6,36 @@
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Voice actor with original Japanese role
-/// var actor = new PersonDto 
-/// { 
-///     Name = "田中花音", 
-///     Type = "Actor", 
-///     Role = "声優" 
+/// var actor = new PersonDto
+/// {
+///     Name = "田中花音",
+///     Type = "Actor",
+///     Role = "声優"
 /// };
-/// 
+///
 /// // Director with English role
-/// var director = new PersonDto 
-/// { 
-///     Name = "John Smith", 
-///     Type = "Director", 
-///     Role = "Director" 
+/// var director = new PersonDto
+/// {
+///     Name = "John Smith",
+///     Type = "Director",
+///     Role = "Director"
 /// };
-/// 
+///
 /// // Writer with specific role detail
-/// var writer = new PersonDto 
-/// { 
-///     Name = "Jane Doe", 
-///     Type = "Writer", 
-///     Role = "Original Story" 
+/// var writer = new PersonDto
+/// {
+///     Name = "Jane Doe",
+///     Type = "Writer",
+///     Role = "Original Story"
 /// };
-/// 
+///
 /// // Producer without specific role detail
-/// var producer = new PersonDto 
-/// { 
-///     Name = "Producer Name", 
-///     Type = "Producer" 
+/// var producer = new PersonDto
+/// {
+///     Name = "Producer Name",
+///     Type = "Producer"
 /// };
 /// </example>
 public sealed class PersonDto
@@ -70,10 +70,10 @@ public sealed class PersonDto
     /// <example>
     /// // Japanese original roles
     /// Role = "声優";        // Voice actor
-    /// Role = "監督";        // Director  
+    /// Role = "監督";        // Director
     /// Role = "シナリオ";     // Scenario writer
     /// Role = "音響監督";     // Sound director
-    /// 
+    ///
     /// // English role specifications
     /// Role = "Main Character";
     /// Role = "Supporting Character";

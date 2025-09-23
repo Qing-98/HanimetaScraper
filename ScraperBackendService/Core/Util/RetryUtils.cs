@@ -32,7 +32,7 @@ public static class RetryUtils
             catch (Exception ex)
             {
                 lastException = ex;
-                
+
                 if (attempt == maxRetries)
                     break;
 
@@ -65,7 +65,7 @@ public static class RetryUtils
             catch (Exception ex)
             {
                 lastException = ex;
-                
+
                 if (attempt == maxRetries)
                     break;
 

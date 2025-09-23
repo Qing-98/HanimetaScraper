@@ -1,10 +1,51 @@
 namespace ScraperBackendService.Core.Abstractions;
 
 /// <summary>
-///（可选）把站点里的“导演/脚本/原画/声优”等表头映射为统一的 Type/Role。
-/// DLsite 用得到；Hanime 暂时可不实现。
+/// Maps raw role header text from content provider websites to standardized Type/Role pairs.
+/// This interface helps normalize personnel information across different content providers.
+/// For example, maps "声優" to ("Actor", "Voice Actor") or "監督" to ("Director", null).
 /// </summary>
+/// <remarks>
+/// Currently used by DLsite provider to standardize Japanese role headers.
+/// Hanime provider may implement this interface in the future if needed.
+/// </remarks>
+/// <example>
+/// Implementation example:
+/// <code>
+/// public class DLsiteRoleMapper : IRoleMapper
+/// {
+///     public (string Type, string? Role) Map(string rawHeaderText)
+///     {
+///         return rawHeaderText switch
+///         {
+///             "声優" => ("Actor", "Voice Actor"),
+///             "監督" => ("Director", null),
+///             "脚本" => ("Writer", "Screenplay"),
+///             _ => ("Actor", rawHeaderText)
+///         };
+///     }
+/// }
+/// </code>
+/// </example>
 public interface IRoleMapper
 {
+    /// <summary>
+    /// Maps raw header text from website to standardized Type and Role values.
+    /// </summary>
+    /// <param name="rawHeaderText">
+    /// The raw header text from the content provider website (e.g., "声優", "監督", "脚本").
+    /// </param>
+    /// <returns>
+    /// A tuple containing:
+    /// - Type: Standardized personnel type (e.g., "Actor", "Director", "Writer")
+    /// - Role: Optional specific role description (e.g., "Voice Actor", "Screenplay")
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// var mapper = new DLsiteRoleMapper();
+    /// var (type, role) = mapper.Map("声優");
+    /// // Returns: ("Actor", "Voice Actor")
+    /// </code>
+    /// </example>
     (string Type, string? Role) Map(string rawHeaderText);
 }

@@ -7,15 +7,15 @@ namespace ScraperBackendService.Models;
 /// <typeparam name="T">Type of data payload in the response</typeparam>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Successful response with data
 /// var successResponse = ApiResponse&lt;List&lt;HanimeMetadata&gt;&gt;.Ok(searchResults, "Search completed successfully");
 /// // Returns: { "success": true, "data": [...], "message": "Search completed successfully", "timestamp": "..." }
-/// 
+///
 /// // Error response
 /// var errorResponse = ApiResponse&lt;HanimeMetadata&gt;.Fail("Content not found", "The requested ID does not exist");
 /// // Returns: { "success": false, "error": "Content not found", "message": "The requested ID does not exist", "timestamp": "..." }
-/// 
+///
 /// // Minimal success response
 /// var response = ApiResponse&lt;string&gt;.Ok("Hello World");
 /// // Returns: { "success": true, "data": "Hello World", "timestamp": "..." }
@@ -87,7 +87,7 @@ public sealed class ApiResponse<T>
 ///   "authEnabled": true,
 ///   "timestamp": "2024-01-15T10:30:00.000Z"
 /// }
-/// 
+///
 /// Usage in endpoints:
 /// app.MapGet("/", () => Results.Json(ApiResponse&lt;ServiceInfo&gt;.Ok(new ServiceInfo { AuthEnabled = config.AuthToken != null })));
 /// </example>
@@ -125,19 +125,19 @@ public sealed class ServiceInfo
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Basic search
 /// var request = new SearchRequest { Title = "Love", MaxResults = 10 };
-/// 
+///
 /// // Advanced search with genre filtering
-/// var request2 = new SearchRequest 
-/// { 
-///     Title = "Romance", 
-///     MaxResults = 20, 
+/// var request2 = new SearchRequest
+/// {
+///     Title = "Romance",
+///     MaxResults = 20,
 ///     Genre = "Comedy",
 ///     Sort = "Latest"
 /// };
-/// 
+///
 /// // URL parameter mapping
 /// // GET /api/hanime/search?title=Love&max=10&genre=Romance&sort=Rating
 /// // Maps to: { Title: "Love", MaxResults: 10, Genre: "Romance", Sort: "Rating" }

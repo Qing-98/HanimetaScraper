@@ -14,14 +14,14 @@ namespace ScraperBackendService.Core.Net;
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Context Management Mode (recommended for production)
 /// var contextManager = new PlaywrightContextManager(browser, logger, options);
 /// var client = new PlaywrightNetworkClient(contextManager, logger, antiBotHook);
-/// 
+///
 /// // Simple Mode (lightweight for testing)
 /// var client = new PlaywrightNetworkClient(browser, options, antiBotHook);
-/// 
+///
 /// // Basic usage
 /// var html = await client.GetHtmlAsync("https://example.com", ct);
 /// var json = await client.GetJsonAsync("https://api.example.com/data", headers, ct);
@@ -143,7 +143,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
     /// // Simple JSON request
     /// var json = await client.GetJsonAsync("https://api.example.com/data", null, ct);
     /// var value = json.RootElement.GetProperty("result").GetString();
-    /// 
+    ///
     /// // JSON request with custom headers
     /// var headers = new Dictionary&lt;string, string&gt; { { "X-Requested-With", "XMLHttpRequest" } };
     /// var json2 = await client.GetJsonAsync("https://api.example.com/ajax", headers, ct);
@@ -483,10 +483,10 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         // Use reflection to get Browser instance
         var browserField = contextManager.GetType()
             .GetField("_browser", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        
+
         if (browserField?.GetValue(contextManager) is IBrowser browser)
             return browser;
-            
+
         throw new InvalidOperationException("Cannot access browser from context manager.");
     }
 

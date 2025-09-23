@@ -32,13 +32,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>
     /// Gets the plugin configuration.
     /// </summary>
-    public static PluginConfiguration PluginConfig => Instance!.Configuration;
+    public static PluginConfiguration PluginConfig => Instance?.Configuration ?? new PluginConfiguration();
 
     /// <inheritdoc />
     public override string Name => "DLsite Scraper";
 
     /// <inheritdoc />
-    public override Guid Id => Guid.Parse("11111111-aaaa-bbbb-cccc-111111111111");
+    public override Guid Id => Guid.Parse("d2e313b1-0c08-4a4b-9696-768a06561c3f");
 
     /// <inheritdoc />
     public override string Description => "DLsite metadata provider with backend scraper service";

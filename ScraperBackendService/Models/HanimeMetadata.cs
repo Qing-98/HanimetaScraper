@@ -1,4 +1,4 @@
-﻿// ScraperBackendService/Models/MovieMeta.cs
+// ScraperBackendService/Models/MovieMeta.cs
 namespace ScraperBackendService.Models;
 
 /// <summary>
@@ -7,7 +7,7 @@ namespace ScraperBackendService.Models;
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Create new metadata instance
 /// var metadata = new HanimeMetadata
 /// {
@@ -18,24 +18,24 @@ namespace ScraperBackendService.Models;
 ///     ReleaseDate = DateTimeOffset.Parse("2024-01-15"),
 ///     Year = 2024
 /// };
-/// 
+///
 /// // Add studios and genres
 /// metadata.Studios.Add("Studio Example");
 /// metadata.Genres.AddRange(new[] { "Romance", "Comedy", "Drama" });
-/// 
+///
 /// // Add personnel
-/// metadata.People.Add(new PersonDto 
-/// { 
-///     Name = "Voice Actor Name", 
-///     Type = "Actor", 
-///     Role = "声優" 
+/// metadata.People.Add(new PersonDto
+/// {
+///     Name = "Voice Actor Name",
+///     Type = "Actor",
+///     Role = "声優"
 /// });
-/// 
+///
 /// // Set images
 /// metadata.Primary = "https://example.com/cover.jpg";
 /// metadata.Backdrop = "https://example.com/backdrop.jpg";
 /// metadata.Thumbnails.AddRange(new[] { "thumb1.jpg", "thumb2.jpg" });
-/// 
+///
 /// // Add source URL
 /// metadata.SourceUrls.Add("https://source-site.com/content/12345");
 /// </example>
@@ -146,7 +146,7 @@ public sealed class HanimeMetadata
     /// Additional promotional or preview images.
     /// </summary>
     /// <example>
-    /// Thumbnails.AddRange(new[] 
+    /// Thumbnails.AddRange(new[]
     /// {
     ///     "https://example.com/thumbs/12345_01.jpg",
     ///     "https://example.com/thumbs/12345_02.jpg",

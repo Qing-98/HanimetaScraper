@@ -1,19 +1,19 @@
 {
-  "guid": "11111111-aaaa-bbbb-cccc-111111111111",
-  "name": "DLsite Scraper",
-  "description": "DLsite metadata provider with backend scraper service",
-  "overview": "Provides metadata for DLsite content using a backend scraper service",
-  "owner": "DLsiteScraperTeam",
+  "guid": "d2e313b1-0c08-4a4b-9696-768a06561c3f",
+  "name": "DLsiteScraper",
+  "description": "DLsite metadata provider for Jellyfin",
+  "overview": "Jellyfin DLsite metadata plugin, provides rich metadata and images for doujin content via backend service.",
+  "owner": "Qing-98",
   "category": "Metadata",
   "imageUrl": "",
   "versions": [
     {
       "version": "1.0.0.0",
-      "changelog": "Initial release with configuration support",
+      "changelog": "## What's Changed\n\n- Initial release: DLsite metadata scraping support\n- Search by title or ID\n- Rich metadata: actors, rating, images, etc.\n- API token authentication and logging options\n- Compatible with Jellyfin 10.8.0 and above\n",
       "targetAbi": "10.8.0.0",
-      "sourceUrl": "",
-      "checksum": "",
-      "timestamp": ""
+      "sourceUrl": "https://your-domain.com/jellyfin-plugin-dlsite/1.0.0.zip",
+      "checksum": "your-zip-sha256-checksum",
+      "timestamp": "2024-06-01T00:00:00Z"
     }
   ]
 }

@@ -12,24 +12,24 @@ using System.Text.Json;
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Run with default settings
 /// dotnet run
-/// 
+///
 /// // Run on custom port
 /// dotnet run 9090
-/// 
+///
 /// // Run with environment variables
 /// set SCRAPER_PORT=8080
 /// set SCRAPER_AUTH_TOKEN=my-secret-token
 /// dotnet run
-/// 
+///
 /// // API endpoints available:
 /// GET /                           - Service info and health status
 /// GET /health                     - Health check endpoint
 /// GET /api/hanime/search?title=   - Search Hanime content
 /// GET /api/hanime/{id}            - Get Hanime content details
-/// GET /api/dlsite/search?title=   - Search DLsite content  
+/// GET /api/dlsite/search?title=   - Search DLsite content
 /// GET /api/dlsite/{id}            - Get DLsite content details
 /// </example>
 
@@ -85,7 +85,7 @@ app.Use(async (context, next) =>
     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(serviceConfig.RequestTimeoutSeconds));
     var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(
         context.RequestAborted, cts.Token).Token;
-    
+
     context.RequestAborted = combinedToken;
     await next();
 });
@@ -145,13 +145,13 @@ app.MapGet("/api/hanime/search", async (
     try
     {
         logger.LogInformation("Hanime search request: {Title}", title);
-        
+
         var maxResults = Math.Min(max ?? 12, 50); // Limit maximum results to prevent overload
         var hits = await provider.SearchAsync(title, maxResults, ct);
-        
+
         var results = new List<HanimeMetadata>();
         var semaphore = new SemaphoreSlim(serviceConfig.MaxConcurrentRequests, serviceConfig.MaxConcurrentRequests);
-        
+
         // Process search hits concurrently with rate limiting
         var tasks = hits.Take(maxResults).Select(async hit =>
         {
@@ -178,8 +178,15 @@ app.MapGet("/api/hanime/search", async (
         });
 
         await Task.WhenAll(tasks);
-        
-        logger.LogInformation("Hanime search completed: {Title}, found {Count} results", title, results.Count);
+
+        if (results.Count > 0)
+        {
+            logger.LogInformation("Hanime search completed: {Title}, found {Count} results", title, results.Count);
+        }
+        else
+        {
+            logger.LogInformation("Hanime search completed: {Title}, no results found", title);
+        }
         return Results.Json(ApiResponse<List<HanimeMetadata>>.Ok(results));
     }
     catch (OperationCanceledException)
@@ -213,15 +220,16 @@ app.MapGet("/api/hanime/{id}", async (
     try
     {
         logger.LogInformation("Hanime detail request: {Id}", id);
-        
+
         if (!provider.TryParseId(id, out var parsedId))
         {
+            logger.LogWarning("Hanime invalid ID format: {Id}", id);
             return Results.Json(ApiResponse<HanimeMetadata>.Fail($"Invalid Hanime ID: {id}"));
         }
-        
+
         var detailUrl = provider.BuildDetailUrlById(parsedId);
         var result = await provider.FetchDetailAsync(detailUrl, ct);
-        
+
         if (result != null)
         {
             logger.LogInformation("Hanime detail found: {Id}", id);
@@ -268,13 +276,13 @@ app.MapGet("/api/dlsite/search", async (
     try
     {
         logger.LogInformation("DLsite search request: {Title}", title);
-        
+
         var maxResults = Math.Min(max ?? 12, 50);
         var hits = await provider.SearchAsync(title, maxResults, ct);
-        
+
         var results = new List<HanimeMetadata>();
         var semaphore = new SemaphoreSlim(serviceConfig.MaxConcurrentRequests, serviceConfig.MaxConcurrentRequests);
-        
+
         // Process search hits concurrently with rate limiting
         var tasks = hits.Take(maxResults).Select(async hit =>
         {
@@ -301,8 +309,15 @@ app.MapGet("/api/dlsite/search", async (
         });
 
         await Task.WhenAll(tasks);
-        
-        logger.LogInformation("DLsite search completed: {Title}, found {Count} results", title, results.Count);
+
+        if (results.Count > 0)
+        {
+            logger.LogInformation("DLsite search completed: {Title}, found {Count} results", title, results.Count);
+        }
+        else
+        {
+            logger.LogInformation("DLsite search completed: {Title}, no results found", title);
+        }
         return Results.Json(ApiResponse<List<HanimeMetadata>>.Ok(results));
     }
     catch (OperationCanceledException)
@@ -336,15 +351,16 @@ app.MapGet("/api/dlsite/{id}", async (
     try
     {
         logger.LogInformation("DLsite detail request: {Id}", id);
-        
+
         if (!provider.TryParseId(id, out var parsedId))
         {
+            logger.LogWarning("DLsite invalid ID format: {Id}", id);
             return Results.Json(ApiResponse<HanimeMetadata>.Fail($"Invalid DLsite ID: {id}"));
         }
-        
+
         var detailUrl = provider.BuildDetailUrlById(parsedId);
         var result = await provider.FetchDetailAsync(detailUrl, ct);
-        
+
         if (result != null)
         {
             logger.LogInformation("DLsite detail found: {Id}", id);
@@ -372,7 +388,7 @@ app.MapGet("/api/dlsite/{id}", async (
 var listenUrl = $"http://{serviceConfig.Host}:{serviceConfig.Port}";
 
 logger.LogInformation("Starting ScraperBackendService on {Url}", listenUrl);
-logger.LogInformation("Authentication: {Status}", 
+logger.LogInformation("Authentication: {Status}",
     string.IsNullOrWhiteSpace(serviceConfig.AuthToken) ? "Disabled" : "Enabled");
 
 try

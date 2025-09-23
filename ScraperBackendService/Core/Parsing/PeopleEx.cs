@@ -11,13 +11,13 @@ namespace ScraperBackendService.Core.Parsing;
 /// </summary>
 /// <example>
 /// Usage examples:
-/// 
+///
 /// // Extract all personnel from DLsite page
 /// PeopleEx.ExtractDLsitePersonnel(htmlDocument, metadata);
-/// 
+///
 /// // Add individual person with role mapping
 /// PeopleEx.AddPersonWithOriginalRole(metadata, "山田太郎", "声優");
-/// 
+///
 /// // Manual role mapping
 /// var (englishType, role) = PeopleEx.MapStaffRole("監督");
 /// // Returns: ("Director", null)
@@ -33,10 +33,10 @@ public static class PeopleEx
     /// <example>
     /// var (type, role) = MapStaffRole("声優");
     /// // Returns: ("Actor", null)
-    /// 
+    ///
     /// var (type2, role2) = MapStaffRole("監督");
     /// // Returns: ("Director", null)
-    /// 
+    ///
     /// var (type3, role3) = MapStaffRole("シナリオ");
     /// // Returns: ("Writer", null)
     /// </example>
@@ -54,10 +54,10 @@ public static class PeopleEx
     /// <example>
     /// // Add voice actor with original Japanese role
     /// AddPerson(metadata, "田中花音", "Actor", "声優");
-    /// 
+    ///
     /// // Add director with original role
     /// AddPerson(metadata, "佐藤一郎", "Director", "監督");
-    /// 
+    ///
     /// // Add writer
     /// AddPerson(metadata, "鈴木次郎", "Writer", "シナリオ");
     /// </example>
@@ -75,15 +75,15 @@ public static class PeopleEx
     /// var doc = new HtmlDocument();
     /// doc.LoadHtml(htmlContent);
     /// var metadata = new HanimeMetadata();
-    /// 
+    ///
     /// ExtractDLsitePersonnel(doc, metadata);
-    /// 
+    ///
     /// // Results in metadata.People containing extracted personnel:
     /// // - Voice actors (声優 -> Actor)
-    /// // - Directors (監督 -> Director) 
+    /// // - Directors (監督 -> Director)
     /// // - Writers (シナリオ -> Writer)
     /// // - Other recognized roles
-    /// 
+    ///
     /// Console.WriteLine($"Found {metadata.People.Count} personnel entries");
     /// foreach (var person in metadata.People)
     /// {
@@ -141,11 +141,11 @@ public static class PeopleEx
     /// // Add voice actor using Japanese role
     /// AddPersonWithOriginalRole(metadata, "田中花音", "声優");
     /// // Automatically maps "声優" to "Actor" type
-    /// 
+    ///
     /// // Add director using Japanese role
     /// AddPersonWithOriginalRole(metadata, "佐藤監督", "監督");
     /// // Automatically maps "監督" to "Director" type
-    /// 
+    ///
     /// // Skip unrecognized roles
     /// AddPersonWithOriginalRole(metadata, "Unknown Person", "UnknownRole");
     /// // Will be skipped since "UnknownRole" doesn't map to a standard type
@@ -156,7 +156,7 @@ public static class PeopleEx
             return;
 
         var (normalizedType, _) = MapStaffRole(originalRoleJapanese);
-        
+
         // If mapped type equals original role, it's not a recognized personnel role - skip
         if (normalizedType.Equals(originalRoleJapanese, StringComparison.OrdinalIgnoreCase))
             return;

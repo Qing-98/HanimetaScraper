@@ -14,12 +14,12 @@ namespace ScraperBackendService.Core.Abstractions;
 /// var httpClient = new HttpNetworkClient(logger);
 /// var html = await httpClient.GetHtmlAsync("https://example.com", ct);
 /// var page = await httpClient.OpenPageAsync("https://example.com", ct); // Returns null
-/// 
+///
 /// Usage with Playwright client:
 /// var playwrightClient = new PlaywrightNetworkClient(browser);
 /// var html = await playwrightClient.GetHtmlAsync("https://example.com", ct);
 /// var page = await playwrightClient.OpenPageAsync("https://example.com", ct); // Returns IPage
-/// 
+///
 /// Provider usage pattern:
 /// var page = await networkClient.OpenPageAsync(url, ct);
 /// if (page != null)
@@ -61,9 +61,9 @@ public interface INetworkClient
     /// // Simple JSON request
     /// var json = await networkClient.GetJsonAsync("https://api.example.com/data", null, ct);
     /// var value = json.RootElement.GetProperty("value").GetString();
-    /// 
+    ///
     /// // JSON request with custom headers
-    /// var headers = new Dictionary&lt;string, string&gt; 
+    /// var headers = new Dictionary&lt;string, string&gt;
     /// {
     ///     { "X-Requested-With", "XMLHttpRequest" },
     ///     { "Referer", "https://example.com" }
@@ -90,13 +90,13 @@ public interface INetworkClient
     ///     await page.WaitForSelectorAsync(".dynamic-content");
     ///     await page.ClickAsync("button#load-more");
     ///     var elements = await page.QuerySelectorAllAsync(".result-item");
-    ///     
+    ///
     ///     foreach (var element in elements)
     ///     {
     ///         var text = await element.InnerTextAsync();
     ///         var href = await element.GetAttributeAsync("href");
     ///     }
-    ///     
+    ///
     ///     // Don't forget to close
     ///     await page.CloseAsync();
     /// }

@@ -11,16 +11,16 @@ namespace ScraperBackendService.Core.Util;
 public static class ScrapingUtils
 {
     private static readonly Regex SpaceCollapseRe = new(@"\s+", RegexOptions.Compiled);
-    
+
     // ================= Text Processing Tools =================
-    
+
     /// <summary>
     /// Build search keywords from filename, removing quality/encoding tags
     /// </summary>
     public static string BuildQueryFromFilename(string filenameOrText)
     {
         if (string.IsNullOrWhiteSpace(filenameOrText)) return "";
-        
+
         var name = Path.GetFileNameWithoutExtension(filenameOrText.Trim());
 
         // Remove common quality/encoding/audio track tags
@@ -81,29 +81,29 @@ public static class ScrapingUtils
     }
 
     // ================= HTML Parsing Tools =================
-    
+
     /// <summary>
     /// Select single HTML node
     /// </summary>
-    public static HtmlNode? SelectSingle(HtmlDocument doc, string xpath) 
+    public static HtmlNode? SelectSingle(HtmlDocument doc, string xpath)
         => doc.DocumentNode.SelectSingleNode(xpath);
 
     /// <summary>
     /// Select multiple HTML nodes
     /// </summary>
-    public static HtmlNodeCollection? SelectNodes(HtmlDocument doc, string xpath) 
+    public static HtmlNodeCollection? SelectNodes(HtmlDocument doc, string xpath)
         => doc.DocumentNode.SelectNodes(xpath);
 
     /// <summary>
     /// Select node and get text content
     /// </summary>
-    public static string SelectText(HtmlDocument doc, string xpath) 
+    public static string SelectText(HtmlDocument doc, string xpath)
         => doc.DocumentNode.SelectSingleNode(xpath)?.InnerText?.Trim() ?? "";
 
     /// <summary>
     /// Get node attribute value
     /// </summary>
-    public static string GetAttr(HtmlNode? node, string name) 
+    public static string GetAttr(HtmlNode? node, string name)
         => node?.GetAttributeValue(name, "") ?? "";
 
     /// <summary>
@@ -119,7 +119,7 @@ public static class ScrapingUtils
     }
 
     // ================= Image Processing Tools =================
-    
+
     /// <summary>
     /// Select best JPG image URL from src/srcset
     /// </summary>
@@ -156,14 +156,14 @@ public static class ScrapingUtils
     public static void AddThumb(HanimeMetadata meta, string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return;
-        
+
         var normalized = url.Trim();
         if (normalized.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
         {
             var idx = normalized.LastIndexOf('.');
             if (idx > 0) normalized = normalized[..idx] + ".jpg";
         }
-        
+
         if (!meta.Thumbnails.Contains(normalized))
             meta.Thumbnails.Add(normalized);
     }
@@ -178,7 +178,7 @@ public static class ScrapingUtils
     }
 
     // ================= ID Parsing Tools =================
-    
+
     private static readonly Regex HanimeUrlIdRegex = new(@"(?i)https?://(?:www\.)?hanime1\.me/watch\?v=(\d{3,})", RegexOptions.Compiled);
     private static readonly Regex HanimeBareIdRegex = new(@"^\d{3,}$", RegexOptions.Compiled);
     private static readonly Regex DlsiteRjRegex = new(@"(?i)^RJ\d+$", RegexOptions.Compiled);
@@ -199,10 +199,13 @@ public static class ScrapingUtils
         var m = HanimeUrlIdRegex.Match(t);
         if (m.Success) { id = m.Groups[1].Value; return true; }
 
-        // Try pure numeric
+        // Try pure numeric (allow any numeric input for flexibility)
         if (HanimeBareIdRegex.IsMatch(t)) { id = t; return true; }
 
-        return false;
+        // For non-numeric input, treat as search keyword and accept it
+        // This allows flexible searching with any keyword
+        id = t;
+        return true;
     }
 
     /// <summary>
@@ -212,22 +215,22 @@ public static class ScrapingUtils
     {
         id = "";
         var t = input?.Trim() ?? "";
-        
+
         // Direct match RJ/VJ format
-        if (DlsiteRjRegex.IsMatch(t) || DlsiteVjRegex.IsMatch(t)) 
-        { 
-            id = t.ToUpperInvariant(); 
-            return true; 
+        if (DlsiteRjRegex.IsMatch(t) || DlsiteVjRegex.IsMatch(t))
+        {
+            id = t.ToUpperInvariant();
+            return true;
         }
 
         // Parse from URL
         var parsed = ParseDlsiteIdFromUrl(t);
-        if (!string.IsNullOrEmpty(parsed)) 
-        { 
-            id = parsed; 
-            return true; 
+        if (!string.IsNullOrEmpty(parsed))
+        {
+            id = parsed;
+            return true;
         }
-        
+
         return false;
     }
 
@@ -237,25 +240,25 @@ public static class ScrapingUtils
     public static string ParseDlsiteIdFromUrl(string rawUrl)
     {
         if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri)) return "";
-        
+
         var baseName = Path.GetFileName(uri.AbsolutePath);
         if (DlsiteProductPathRegex.IsMatch(baseName))
         {
             var id = baseName[..baseName.LastIndexOf('.')];
             return id.Trim().ToUpperInvariant();
         }
-        
+
         foreach (var seg in uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
-            if (DlsiteRjRegex.IsMatch(seg) || DlsiteVjRegex.IsMatch(seg)) 
+            if (DlsiteRjRegex.IsMatch(seg) || DlsiteVjRegex.IsMatch(seg))
                 return seg.Trim().ToUpperInvariant();
         }
-        
+
         return "";
     }
 
     // ================= Personnel Role Mapping =================
-    
+
     /// <summary>
     /// Map Japanese role names to English types
     /// </summary>
@@ -264,29 +267,29 @@ public static class ScrapingUtils
         if (string.IsNullOrEmpty(header)) return (header, null);
 
         // Director
-        if (header.Contains("監督") || header.Contains("ディレクター")) 
+        if (header.Contains("監督") || header.Contains("ディレクター"))
             return ("Director", null);
-        
+
         // Writer
-        if (header.Contains("シナリオ") || header.Contains("脚本")) 
+        if (header.Contains("シナリオ") || header.Contains("脚本"))
             return ("Writer", null);
-        
+
         // Artist
-        if (header.Contains("原画") || header.Contains("イラスト")) 
+        if (header.Contains("原画") || header.Contains("イラスト"))
             return ("Illustrator", null);
-        
+
         // Producer
         if (header.Contains("制作") || header.Contains("企画") || header.Contains("プロデューサ"))
             return ("Producer", null);
-        
+
         // Editor
-        if (header.Contains("編集")) 
+        if (header.Contains("編集"))
             return ("Editor", null);
-        
+
         // Music
-        if (header.Contains("音楽")) 
+        if (header.Contains("音楽"))
             return ("Composer", null);
-        
+
         // Actor
         if (header.Contains("声優") || header.Contains("出演者") || header.Contains("キャスト"))
             return ("Actor", null);
@@ -307,29 +310,29 @@ public static class ScrapingUtils
     /// <example>
     /// // Add voice actor with Japanese role
     /// AddPerson(metadata, "田中花音", "Actor", "声優");
-    /// 
+    ///
     /// // Add director with standardized type
     /// AddPerson(metadata, "山田監督", "Director", "監督");
     /// </example>
     public static void AddPerson(HanimeMetadata meta, string name, string normalizedType, string? originalRole)
     {
         if (string.IsNullOrWhiteSpace(name)) return;
-        
+
         // Deduplicate by Name+Type (using normalized type for consistency)
         if (meta.People.Any(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
                                && p.Type.Equals(normalizedType, StringComparison.OrdinalIgnoreCase)))
             return;
-            
-        meta.People.Add(new PersonDto 
-        { 
-            Name = name, 
+
+        meta.People.Add(new PersonDto
+        {
+            Name = name,
             Type = normalizedType,        // Standardized English role type (Actor, Director, etc.)
             Role = originalRole           // Original role name (声優, 監督, etc.)
         });
     }
 
     // ================= Date Parsing Tools =================
-    
+
     private static readonly Regex DateJpRegex = new(@"(\d{4})年(\d{1,2})月(\d{1,2})日", RegexOptions.Compiled);
 
     /// <summary>
@@ -338,10 +341,10 @@ public static class ScrapingUtils
     public static DateTimeOffset? ParseJapaneseDate(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        
+
         var match = DateJpRegex.Match(text);
         if (!match.Success) return null;
-        
+
         if (int.TryParse(match.Groups[1].Value, out var year) &&
             int.TryParse(match.Groups[2].Value, out var month) &&
             int.TryParse(match.Groups[3].Value, out var day))
@@ -355,12 +358,12 @@ public static class ScrapingUtils
                 return null;
             }
         }
-        
+
         return null;
     }
 
     // ================= HTML Table Parsing Tools =================
-    
+
     /// <summary>
     /// Extract content from table cell, prefer first link
     /// </summary>
@@ -368,7 +371,7 @@ public static class ScrapingUtils
     {
         var td = doc.DocumentNode.SelectSingleNode(xpath);
         if (td == null) return "";
-        
+
         var a1 = td.SelectSingleNode(".//a[1]");
         var val = Clean(a1?.InnerText ?? td.InnerText);
         return val;
@@ -381,7 +384,7 @@ public static class ScrapingUtils
     {
         var td = doc.DocumentNode.SelectSingleNode(xpath);
         if (td == null) return "";
-        
+
         var a = td.SelectSingleNode(".//a");
         return Clean(a?.InnerText ?? td.InnerText);
     }

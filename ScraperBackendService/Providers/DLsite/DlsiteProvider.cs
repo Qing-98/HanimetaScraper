@@ -49,7 +49,7 @@ public sealed class DlsiteProvider : IMediaProvider
     /// {
     ///     Console.WriteLine($"Extracted ID: {id}"); // Output: "RJ123456"
     /// }
-    /// 
+    ///
     /// // Parse from direct ID
     /// if (provider.TryParseId("RJ01402281", out var id2))
     /// {
@@ -95,7 +95,7 @@ public sealed class DlsiteProvider : IMediaProvider
     ///     Console.WriteLine($"URL: {hit.DetailUrl}");
     ///     Console.WriteLine($"Cover: {hit.CoverUrl}");
     /// }
-    /// 
+    ///
     /// // Search with product ID
     /// var results2 = await provider.SearchAsync("RJ123456", 1, CancellationToken.None);
     /// </example>
@@ -131,6 +131,16 @@ public sealed class DlsiteProvider : IMediaProvider
 
             hits.Add(new SearchHit(detailUrl, ScrapingUtils.Clean(title), cover ?? ""));
             if (maxResults > 0 && hits.Count >= maxResults) break;
+        }
+
+        // Log search results
+        if (hits.Count > 0)
+        {
+            _log.LogInformation("[DLsite] Search completed: {Keyword}, found {Count} hits", keyword, hits.Count);
+        }
+        else
+        {
+            _log.LogInformation("[DLsite] Search completed: {Keyword}, no search hits found", keyword);
         }
 
         return hits;
@@ -212,6 +222,19 @@ public sealed class DlsiteProvider : IMediaProvider
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
+
+        // First, check if this is a valid DLsite product page
+        // Look for key elements that indicate a valid product page
+        var titleNode = doc.DocumentNode.SelectSingleNode("//h1[@id='work_name']");
+        var workOutlineTable = doc.DocumentNode.SelectSingleNode("//table[@id='work_outline']");
+        var workMakerTable = doc.DocumentNode.SelectSingleNode("//table[@id='work_maker']");
+
+        // If we don't find any key content indicators, this is likely a 404 or invalid page
+        if (titleNode == null && workOutlineTable == null && workMakerTable == null)
+        {
+            _log.LogWarning("No valid DLsite product found at URL: {Url}", detailUrl);
+            return null;
+        }
 
         var meta = new HanimeMetadata
         {

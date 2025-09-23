@@ -16,4 +16,9 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the API token.
     /// </summary>
     public string? ApiToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether logging is enabled.
+    /// </summary>
+    public bool EnableLogging { get; set; } = true;
 }

@@ -15,12 +15,12 @@ namespace ScraperBackendService.Extensions;
 /// var builder = WebApplication.CreateBuilder(args);
 /// var serviceConfig = new ServiceConfiguration();
 /// builder.Configuration.GetSection(ServiceConfiguration.SectionName).Bind(serviceConfig);
-/// 
+///
 /// // Register all scraping services
 /// builder.Services.AddScrapingServices(serviceConfig);
-/// 
+///
 /// var app = builder.Build();
-/// 
+///
 /// // Services are now available for injection:
 /// // - HanimeProvider (with PlaywrightNetworkClient)
 /// // - DlsiteProvider (with HttpNetworkClient)
@@ -46,9 +46,9 @@ public static class ServiceCollectionExtensions
     ///     RequestTimeoutSeconds = 60,
     ///     EnableDetailedLogging = true
     /// };
-    /// 
+    ///
     /// services.AddScrapingServices(config);
-    /// 
+    ///
     /// // Registered services:
     /// // - ServiceConfiguration (configured options)
     /// // - IBrowser (Playwright Chromium browser)
@@ -76,19 +76,19 @@ public static class ServiceCollectionExtensions
         {
             var logger = sp.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("Initializing Playwright browser...");
-            
+
             var pw = await Playwright.CreateAsync();
             var browser = await pw.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
             {
                 Headless = true,
-                Args = new[] { 
+                Args = new[] {
                     "--no-sandbox",                           // Disable sandbox for containerized environments
                     "--disable-blink-features=AutomationControlled", // Avoid detection as automated browser
                     "--disable-dev-shm-usage",               // Reduce memory usage
                     "--disable-gpu"                          // Disable GPU acceleration for stability
                 }
             });
-            
+
             logger.LogInformation("Playwright browser initialized successfully");
             return browser;
         });

@@ -29,37 +29,37 @@ public sealed class PlaywrightClientOptions
     // ================= Context Management Configuration =================
     /// <summary>Context TTL in minutes</summary>
     public int ContextTtlMinutes { get; init; } = 8;
-    
+
     /// <summary>Maximum pages per context</summary>
     public int MaxPagesPerContext { get; init; } = 50;
-    
+
     /// <summary>Whether to rotate context when challenge is detected</summary>
     public bool RotateOnChallengeDetected { get; init; } = true;
 
     // ================= Challenge Detection Configuration =================
     /// <summary>Challenge detection: URLs containing these keywords are considered challenge pages</summary>
-    public string[] ChallengeUrlHints { get; init; } = new[] 
-    { 
+    public string[] ChallengeUrlHints { get; init; } = new[]
+    {
         "/cdn-cgi/challenge-platform/",
         "/challenge-platform/",
         "checking-your-browser",
         "ddos-protection",
-        "challenge", 
-        "cf-challenge", 
-        "cloudflare", 
+        "challenge",
+        "cf-challenge",
+        "cloudflare",
         "/cdn-cgi/"
     };
-    
+
     /// <summary>Challenge detection: DOM containing these keywords are considered challenge pages</summary>
-    public string[] ChallengeDomHints { get; init; } = new[] 
-    { 
+    public string[] ChallengeDomHints { get; init; } = new[]
+    {
         "Checking your browser",
         "DDoS protection",
         "cf-browser-verification",
         "challenge-form",
-        "cf-challenge", 
-        "#challenge-form", 
-        "Just a moment", 
+        "cf-challenge",
+        "#challenge-form",
+        "Just a moment",
         "Verifying you are human"
     };
 

@@ -10,12 +10,12 @@ namespace ScraperBackendService.Middleware;
 /// <example>
 /// Usage in Program.cs:
 /// app.UseMiddleware&lt;TokenAuthenticationMiddleware&gt;();
-/// 
+///
 /// Client usage with authentication:
 /// var httpClient = new HttpClient();
 /// httpClient.DefaultRequestHeaders.Add("X-API-Token", "your-secret-token");
 /// var response = await httpClient.GetAsync("http://localhost:8585/api/hanime/search?title=Love");
-/// 
+///
 /// Configuration in appsettings.json:
 /// {
 ///   "ServiceConfig": {
@@ -37,7 +37,7 @@ public sealed class TokenAuthenticationMiddleware
     /// <param name="config">Service configuration options</param>
     /// <param name="logger">Logger for authentication events</param>
     public TokenAuthenticationMiddleware(
-        RequestDelegate next, 
+        RequestDelegate next,
         IOptions<ServiceConfiguration> config,
         ILogger<TokenAuthenticationMiddleware> logger)
     {
@@ -54,26 +54,26 @@ public sealed class TokenAuthenticationMiddleware
     /// <returns>Task representing the asynchronous middleware operation</returns>
     /// <example>
     /// Request flow examples:
-    /// 
+    ///
     /// // Public endpoints (no authentication required)
     /// GET / -> passes through
     /// GET /health -> passes through
-    /// 
+    ///
     /// // API endpoints (authentication required when enabled)
     /// GET /api/hanime/search -> validates token
     /// GET /api/dlsite/search -> validates token
-    /// 
+    ///
     /// // Authentication disabled (no token configured)
     /// All requests pass through regardless of endpoint
-    /// 
+    ///
     /// // Authentication enabled with valid token
     /// Headers: { "X-API-Token": "correct-token" }
     /// -> Request proceeds to next middleware
-    /// 
+    ///
     /// // Authentication enabled with missing token
     /// Headers: { }
     /// -> Returns 401 Unauthorized
-    /// 
+    ///
     /// // Authentication enabled with invalid token
     /// Headers: { "X-API-Token": "wrong-token" }
     /// -> Returns 401 Unauthorized
@@ -98,7 +98,7 @@ public sealed class TokenAuthenticationMiddleware
         if (context.Request.Path.StartsWithSegments("/api"))
         {
             var token = context.Request.Headers[_config.TokenHeaderName].FirstOrDefault();
-            
+
             if (string.IsNullOrWhiteSpace(token))
             {
                 _logger.LogWarning("API request without token from {RemoteIP}", context.Connection.RemoteIpAddress);

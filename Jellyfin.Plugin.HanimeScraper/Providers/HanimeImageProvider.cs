@@ -55,7 +55,7 @@ public class HanimeImageProvider : IRemoteImageProvider, IHasOrder
 
         logger.LogInformation("Fetching images for Hanime ID: {Id}", id);
 
-        var backendUrl = Plugin.PluginConfig.BackendUrl?.TrimEnd('/') ?? "http://localhost:8585";
+        var backendUrl = Plugin.PluginConfig?.BackendUrl?.TrimEnd('/') ?? "http://localhost:8585";
         var requestUrl = $"{backendUrl}/api/hanime/{id}";
 
         using var client = CreateClientWithToken();
@@ -142,7 +142,7 @@ public class HanimeImageProvider : IRemoteImageProvider, IHasOrder
     private HttpClient CreateClientWithToken()
     {
         var client = new HttpClient();
-        var token = Plugin.PluginConfig.ApiToken;
+        var token = Plugin.PluginConfig?.ApiToken;
         if (!string.IsNullOrWhiteSpace(token))
         {
             client.DefaultRequestHeaders.Add("X-API-Token", token);

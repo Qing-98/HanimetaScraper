@@ -28,7 +28,7 @@ public static class QuickTest
     /// <example>
     /// // Run DLsite-only test
     /// await QuickTest.TestDLsiteOnly();
-    /// 
+    ///
     /// Expected output:
     /// - Search results for "恋爱" (love in Japanese)
     /// - Product IDs, titles, descriptions, and genre tags
@@ -46,7 +46,7 @@ public static class QuickTest
 
         // Test search with Japanese keyword
         var results = await orchestrator.FetchAsync("恋爱", ScrapeRoute.ByFilename, 2, default);
-        
+
         DisplayResults(results, "DLsite");
     }
 
@@ -58,7 +58,7 @@ public static class QuickTest
     /// <example>
     /// // Run Hanime-only test
     /// await QuickTest.TestHanimeOnly();
-    /// 
+    ///
     /// Expected output:
     /// - Search results for "Love" keyword
     /// - Video IDs, titles, descriptions, and genre tags
@@ -80,7 +80,7 @@ public static class QuickTest
 
         // Test search with English keyword
         var results = await orchestrator.FetchAsync("Love", ScrapeRoute.ByFilename, 2, default);
-        
+
         DisplayResults(results, "Hanime");
     }
 
@@ -108,7 +108,7 @@ public static class QuickTest
     /// <example>
     /// var results = await orchestrator.FetchAsync("search term", ScrapeRoute.Auto, 5, ct);
     /// DisplayResults(results, "DLsite");
-    /// 
+    ///
     /// Output format:
     /// Found 2 results
     /// - RJ123456: Title Name
@@ -118,7 +118,7 @@ public static class QuickTest
     private static void DisplayResults(System.Collections.Generic.List<ScraperBackendService.Models.HanimeMetadata> results, string providerName)
     {
         Console.WriteLine($"Found {results.Count} results from {providerName}");
-        
+
         if (results.Count == 0)
         {
             Console.WriteLine("⚠️  No results found");
@@ -128,22 +128,22 @@ public static class QuickTest
         foreach (var result in results)
         {
             Console.WriteLine($"- {result.ID}: {result.Title}");
-            
+
             // Display truncated description if available
             if (!string.IsNullOrWhiteSpace(result.Description))
             {
-                var desc = result.Description.Length > 50 
-                    ? result.Description[..50] + "..." 
+                var desc = result.Description.Length > 50
+                    ? result.Description[..50] + "..."
                     : result.Description;
                 Console.WriteLine($"  Description: {desc}");
             }
-            
+
             // Display genres/tags
             if (result.Genres.Count > 0)
             {
                 Console.WriteLine($"  Tags: {string.Join(", ", result.Genres)}");
             }
-            
+
             Console.WriteLine();
         }
     }

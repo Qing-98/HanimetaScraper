@@ -129,11 +129,11 @@ class Program
             TestDisplayUtils.DisplaySeparator('-', 60);
 
             await ExecuteTestCaseAsync(provider, input, route, client, loggerFactory, cts.Token);
-            
+
             Console.WriteLine();
             TestDisplayUtils.DisplaySeparator('=', 80);
             Console.WriteLine();
-            
+
             // Brief delay to avoid overwhelming the target servers
             await Task.Delay(1000, cts.Token);
         }
@@ -150,9 +150,9 @@ class Program
     /// <param name="ct">Cancellation token</param>
     /// <returns>Task representing the asynchronous operation</returns>
     private static async Task ExecuteTestCaseAsync(
-        string provider, 
-        string input, 
-        ScrapeRoute route, 
+        string provider,
+        string input,
+        ScrapeRoute route,
         INetworkClient client,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -162,7 +162,7 @@ class Program
         {
             var results = await TestProviderAsync(provider, input, route, client, loggerFactory, ct);
             var elapsed = DateTime.Now - startTime;
-            
+
             TestDisplayUtils.DisplayTestSummary(provider, input, results.Count, elapsed);
 
             if (results.Count == 0)
@@ -172,7 +172,7 @@ class Program
             else
             {
                 Console.WriteLine($"✅ Successfully scraped {results.Count} results:");
-                
+
                 foreach (var (meta, index) in results.Select((m, i) => (m, i + 1)))
                 {
                     TestDisplayUtils.DisplayDetailedMetadata(meta, index);
@@ -198,7 +198,7 @@ class Program
     private static async Task RunDLsiteTestAsync(ILoggerFactory loggerFactory)
     {
         Console.WriteLine("🔍 Testing DLsite (HTTP client only)");
-        
+
         var httpClient = new HttpNetworkClient(loggerFactory.CreateLogger<HttpNetworkClient>());
         var provider = new DlsiteProvider(httpClient, loggerFactory.CreateLogger<DlsiteProvider>());
         var orchestrator = new ScrapeOrchestrator(provider, httpClient, loggerFactory.CreateLogger<ScrapeOrchestrator>());
@@ -225,7 +225,7 @@ class Program
     private static async Task RunHanimeTestAsync(ILoggerFactory loggerFactory)
     {
         Console.WriteLine("🔍 Testing Hanime (Playwright client)");
-        
+
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(
             PlaywrightResourceUtils.CreateLaunchOptions(headless: true));
@@ -253,21 +253,21 @@ class Program
     /// <param name="ct">Cancellation token</param>
     /// <returns>Task representing the asynchronous operation</returns>
     private static async Task ExecuteSingleProviderTestAsync(
-        string providerName, 
-        string input, 
-        ScrapeOrchestrator orchestrator, 
+        string providerName,
+        string input,
+        ScrapeOrchestrator orchestrator,
         CancellationToken ct)
     {
         Console.WriteLine($"📝 Searching: '{input}'");
         var startTime = DateTime.Now;
-        
+
         try
         {
             var results = await orchestrator.FetchAsync(input, ScrapeRoute.Auto, 2, ct);
             var elapsed = DateTime.Now - startTime;
-            
+
             TestDisplayUtils.DisplayTestSummary(providerName, input, results.Count, elapsed);
-            
+
             if (results.Count == 0)
             {
                 Console.WriteLine("⚠️  No results found");
@@ -302,7 +302,7 @@ class Program
         var backendUrl = Console.ReadLine() ?? "http://localhost:8585";
         Console.Write("Please enter Token (optional, press Enter to skip): ");
         var token = Console.ReadLine();
-        
+
         await BackendApiIntegrationTest.TestHanimeApiAsync(backendUrl, token);
         await BackendApiIntegrationTest.TestDlsiteApiAsync(backendUrl, token);
     }
@@ -324,10 +324,10 @@ class Program
         var token = Console.ReadLine();
         Console.Write("Please enter concurrent request count (default: 5): ");
         var countStr = Console.ReadLine();
-        
+
         int concurrentCount = 5;
         int.TryParse(countStr, out concurrentCount);
-        
+
         await BackendApiIntegrationTest.TestConcurrentApiAsync(backendUrl, token, concurrentCount);
     }
 
@@ -348,9 +348,9 @@ class Program
     /// var results = await TestProviderAsync("Hanime", "Love", ScrapeRoute.ByFilename, playwrightClient, loggerFactory, ct);
     /// </example>
     private static async Task<List<HanimeMetadata>> TestProviderAsync(
-        string providerName, 
-        string input, 
-        ScrapeRoute route, 
+        string providerName,
+        string input,
+        ScrapeRoute route,
         INetworkClient client,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -363,8 +363,8 @@ class Program
         };
 
         var orchestrator = new ScrapeOrchestrator(
-            provider, 
-            client, 
+            provider,
+            client,
             loggerFactory.CreateLogger<ScrapeOrchestrator>());
 
         return await orchestrator.FetchAsync(input, route, maxResults: 3, ct);

@@ -15,14 +15,14 @@ public static class TestDisplayUtils
         Console.WriteLine($"📋 Result #{index}:");
         Console.WriteLine($"   🏷️  ID: {meta.ID ?? "❌Empty"}");
         Console.WriteLine($"   📝 Title: {meta.Title ?? "❌Empty"}");
-        
+
         if (!string.IsNullOrWhiteSpace(meta.OriginalTitle) && meta.OriginalTitle != meta.Title)
             Console.WriteLine($"   📝 Original Title: {meta.OriginalTitle}");
 
         if (!string.IsNullOrWhiteSpace(meta.Description))
         {
-            var desc = meta.Description.Length > 100 
-                ? meta.Description[..100] + "..." 
+            var desc = meta.Description.Length > 100
+                ? meta.Description[..100] + "..."
                 : meta.Description;
             Console.WriteLine($"   📄 Description: {desc}");
         }
@@ -32,7 +32,7 @@ public static class TestDisplayUtils
         }
 
         Console.WriteLine($"   ⭐ Rating: {(meta.Rating.HasValue ? $"{meta.Rating:F1}/5.0" : "❌Empty")}");
-        
+
         if (meta.ReleaseDate.HasValue)
             Console.WriteLine($"   📅 Release Date: {meta.ReleaseDate.Value:yyyy-MM-dd}");
         else
@@ -91,8 +91,8 @@ public static class TestDisplayUtils
     /// </summary>
     private static void DisplayImageDetails(HanimeMetadata meta)
     {
-        var hasAnyImage = !string.IsNullOrWhiteSpace(meta.Primary) || 
-                         !string.IsNullOrWhiteSpace(meta.Backdrop) || 
+        var hasAnyImage = !string.IsNullOrWhiteSpace(meta.Primary) ||
+                         !string.IsNullOrWhiteSpace(meta.Backdrop) ||
                          meta.Thumbnails.Count > 0;
 
         if (!hasAnyImage)
@@ -123,7 +123,7 @@ public static class TestDisplayUtils
             {
                 Console.WriteLine($"         [{i + 1:D2}] {TruncateUrl(meta.Thumbnails[i])}");
             }
-            
+
             if (meta.Thumbnails.Count > 10)
             {
                 Console.WriteLine($"         ... and {meta.Thumbnails.Count - 10} more thumbnails");
@@ -143,9 +143,9 @@ public static class TestDisplayUtils
     private static string TruncateUrl(string url, int maxLength = 100)
     {
         if (string.IsNullOrWhiteSpace(url)) return "❌Empty";
-        
+
         if (url.Length <= maxLength) return url;
-        
+
         // Try to keep the filename visible
         var lastSlash = url.LastIndexOf('/');
         if (lastSlash > 0 && url.Length - lastSlash < maxLength / 2)
@@ -156,7 +156,7 @@ public static class TestDisplayUtils
                 return url[..prefixLength] + "..." + url[lastSlash..];
             }
         }
-        
+
         // Fallback: simple truncation
         return url[..(maxLength - 3)] + "...";
     }
@@ -168,7 +168,7 @@ public static class TestDisplayUtils
     {
         Console.WriteLine($"- ID: {meta.ID}");
         Console.WriteLine($"  Title: {(string.IsNullOrWhiteSpace(meta.Title) ? "❌Empty" : meta.Title)}");
-        
+
         if (!string.IsNullOrWhiteSpace(meta.Description))
         {
             var desc = meta.Description.Length > 60 ? meta.Description[..60] + "..." : meta.Description;
@@ -178,15 +178,15 @@ public static class TestDisplayUtils
         {
             Console.WriteLine($"  Description: ❌Empty");
         }
-        
+
         Console.WriteLine($"  Tags: {(meta.Genres?.Count > 0 ? string.Join(", ", meta.Genres) : "❌Empty")}");
-        
+
         // Add image count summary
         var imageCount = (string.IsNullOrWhiteSpace(meta.Primary) ? 0 : 1) +
                         (string.IsNullOrWhiteSpace(meta.Backdrop) ? 0 : 1) +
                         meta.Thumbnails.Count;
         Console.WriteLine($"  Images: {(imageCount > 0 ? $"✅{imageCount} found" : "❌None")}");
-        
+
         Console.WriteLine($"  URL: {string.Join(", ", meta.SourceUrls)}");
         Console.WriteLine();
     }

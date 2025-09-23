@@ -12,25 +12,25 @@ namespace ScraperBackendService.Core.Abstractions;
 /// public class MyProvider : IMediaProvider
 /// {
 ///     public string Name => "MyProvider";
-///     
+///
 ///     public bool TryParseId(string input, out string id)
 ///     {
 ///         // Parse provider-specific ID from input
 ///         return IdParsers.TryParseMyProviderId(input, out id);
 ///     }
-///     
+///
 ///     public string BuildDetailUrlById(string id)
 ///     {
 ///         return $"https://myprovider.com/content/{id}";
 ///     }
-///     
+///
 ///     public async Task&lt;IReadOnlyList&lt;SearchHit&gt;&gt; SearchAsync(string keyword, int maxResults, CancellationToken ct)
 ///     {
 ///         // Implement search logic
 ///         var results = await PerformSearch(keyword, maxResults, ct);
 ///         return results.Select(r => new SearchHit(r.Url, r.Title, r.CoverUrl)).ToList();
 ///     }
-///     
+///
 ///     public async Task&lt;HanimeMetadata?&gt; FetchDetailAsync(string detailUrl, CancellationToken ct)
 ///     {
 ///         // Implement detail extraction logic
@@ -38,7 +38,7 @@ namespace ScraperBackendService.Core.Abstractions;
 ///         return ParseMetadata(html, detailUrl);
 ///     }
 /// }
-/// 
+///
 /// Usage example:
 /// var provider = new MyProvider(networkClient, logger);
 /// var searchResults = await provider.SearchAsync("keyword", 10, ct);
@@ -64,10 +64,10 @@ public interface IMediaProvider
     /// <example>
     /// // Parse from URL
     /// provider.TryParseId("https://site.com/watch?v=12345", out var id); // id = "12345"
-    /// 
+    ///
     /// // Parse from direct ID
     /// provider.TryParseId("RJ123456", out var id); // id = "RJ123456"
-    /// 
+    ///
     /// // Invalid input
     /// provider.TryParseId("invalid", out var id); // returns false
     /// </example>
@@ -82,7 +82,7 @@ public interface IMediaProvider
     /// <example>
     /// var url = provider.BuildDetailUrlById("12345");
     /// // Returns: "https://provider.com/content/12345"
-    /// 
+    ///
     /// var url2 = provider.BuildDetailUrlById("RJ123456");
     /// // Returns: "https://dlsite.com/maniax/work/=/product_id/RJ123456.html"
     /// </example>
@@ -105,7 +105,7 @@ public interface IMediaProvider
     ///     if (!string.IsNullOrEmpty(hit.CoverUrl))
     ///         Console.WriteLine($"Cover: {hit.CoverUrl}");
     /// }
-    /// 
+    ///
     /// // Search with timeout
     /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
     /// var results2 = await provider.SearchAsync("Romance", 5, cts.Token);
@@ -148,13 +148,13 @@ public interface IMediaProvider
 /// <example>
 /// // Create search hit from search results
 /// var hit = new SearchHit("https://site.com/content/12345", "Example Title", "https://site.com/covers/12345.jpg");
-/// 
+///
 /// // Create minimal search hit (title and cover determined later)
 /// var hit2 = new SearchHit("https://site.com/content/67890", null, null);
-/// 
+///
 /// // Use search hit for detail extraction
 /// var metadata = await provider.FetchDetailAsync(hit.DetailUrl, ct);
-/// 
+///
 /// // Search hits are immutable records
 /// var newHit = hit with { Title = "Updated Title" };
 /// </example>

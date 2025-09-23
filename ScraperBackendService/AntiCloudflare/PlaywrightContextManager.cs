@@ -28,11 +28,11 @@ namespace ScraperBackendService.AntiCloudflare
         public int SlowRetryGotoTimeoutMs { get; set; } = 90000;
         public int SlowRetryWaitSelectorMs { get; set; } = 15000;
 
-        // —— Cloudflare/Challenge Recognition Hints —— 
+        // —— Cloudflare/Challenge Recognition Hints ——
         public string[] ChallengeUrlHints { get; set; } = new[] { "challenge", "cf-challenge", "cloudflare", "/cdn-cgi/" };
         public string[] ChallengeDomHints { get; set; } = new[] { "cf-challenge", "#challenge-form", "Just a moment", "Verifying you are human" };
 
-        // —— Basic Fingerprint Configuration —— 
+        // —— Basic Fingerprint Configuration ——
         public string UserAgent { get; set; } =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
         public int ViewportWidth { get; set; } = 1280;

@@ -32,13 +32,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>
     /// Gets the plugin configuration.
     /// </summary>
-    public static PluginConfiguration PluginConfig => Instance!.Configuration;
+    public static PluginConfiguration PluginConfig => Instance?.Configuration ?? new PluginConfiguration();
 
     /// <inheritdoc />
     public override string Name => "Hanime Scraper";
 
     /// <inheritdoc />
-    public override Guid Id => Guid.Parse("22222222-aaaa-bbbb-cccc-222222222222");
+    public override Guid Id => Guid.Parse("18a03d4c-4691-424c-9fda-fe675ea849c4");
 
     /// <inheritdoc />
     public override string Description => "Hanime metadata provider with backend scraper service";
