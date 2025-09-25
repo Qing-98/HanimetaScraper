@@ -1,90 +1,85 @@
-<div id="DLsiteConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-title="DLsite Scraper" data-require="emby-input,emby-button,emby-checkbox">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>DLsite Scraper</title>
+</head>
+
+<body>
+<div class="page type-interior pluginConfigurationPage DLsiteScraperConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-linkbutton" data-role="page">
     <div data-role="content">
         <div class="content-primary">
-            <form id="DLsiteScraperConfigForm" onsubmit="return false;">
-                <div class="inputContainer">
-                    <input is="emby-input" type="text" id="txtBackendUrl" label="Backend URL:" />
-                    <div class="fieldDescription">URL of the scraper backend service (e.g. http://127.0.0.1:8585)</div>
+
+            <h1>DLsite Scraper</h1>
+
+            <div class="readOnlyContent">
+                <p class="description1">DLsite metadata provider with backend scraper service.</p>
+            </div>
+
+            <form class="DLsiteScraperConfigurationForm">
+
+                <div class="verticalSection">
+                    <h2>General Settings</h2>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtBackendUrl">Backend URL:</label>
+                        <input id="txtBackendUrl" is="emby-input" name="txtBackendUrl" pattern="^https?://.+$" required
+                               type="text"/>
+                        <div class="fieldDescription">URL of the scraper backend service (e.g. http://127.0.0.1:8585)</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="txtApiToken">API Token:</label>
+                        <input id="txtApiToken" is="emby-input" name="txtApiToken" type="text"/>
+                        <div class="fieldDescription">Optional API token for authentication with the backend service</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkEnableLogging" is="emby-checkbox" name="chkEnableLogging" type="checkbox"/>
+                            <span>Enable Logging</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Enable detailed logging for troubleshooting</div>
+                    </div>
                 </div>
-                <div class="inputContainer">
-                    <input is="emby-input" type="text" id="txtApiToken" label="API Token (Optional):" />
-                    <div class="fieldDescription">Optional API token for authentication with the backend service</div>
-                </div>
-                <div class="checkboxContainer">
-                    <label>
-                        <input is="emby-checkbox" type="checkbox" id="chkEnableLogging" />
-                        <span>Enable Logging</span>
-                    </label>
-                    <div class="fieldDescription">Enable detailed logging for troubleshooting</div>
-                </div>
-                <br />
+
                 <div>
-                    <button id="btnSave" is="emby-button" type="button" class="raised block btnSave">
-                        <span>Save</span>
-                    </button>
+                    <button class="raised button-submit block" is="emby-button" type="submit">
+                        <span>Save</span></button>
                 </div>
+
             </form>
         </div>
     </div>
+    <script type="text/javascript">
+        var DLsiteScraperPluginConfig = {
+            pluginUniqueId: "d2e313b1-0c08-4a4b-9696-768a06561c3f"
+        };
+
+        $('.DLsiteScraperConfigurationPage').on('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            var page = this;
+            ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
+                $('#txtBackendUrl', page).val(config.BackendUrl || 'http://127.0.0.1:8585').change();
+                $('#txtApiToken', page).val(config.ApiToken || '').change();
+                page.querySelector('#chkEnableLogging').checked = config.EnableLogging || false;
+                Dashboard.hideLoadingMsg();
+            });
+        });
+
+        $('.DLsiteScraperConfigurationForm').on('submit', function () {
+            Dashboard.showLoadingMsg();
+            var form = this;
+            ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
+                config.BackendUrl = $('#txtBackendUrl', form).val().trim();
+                config.ApiToken = $('#txtApiToken', form).val().trim();
+                config.EnableLogging = $('#chkEnableLogging', form).prop('checked');
+                ApiClient.updatePluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+            });
+            // Disable default form submission
+            return false;
+        });
+    </script>
 </div>
-
-<script type="text/javascript">
-    (function () {
-        var pluginId = "d2e313b1-0c08-4a4b-9696-768a06561c3f";
-
-        function load(page, config) {
-            page.querySelector('#txtBackendUrl').value = config.BackendUrl || 'http://127.0.0.1:8585';
-            page.querySelector('#txtApiToken').value = config.ApiToken || '';
-            page.querySelector('#chkEnableLogging').checked = config.EnableLogging || false;
-            Dashboard.hideLoadingMsg();
-        }
-
-        function save() {
-            Dashboard.showLoadingMsg();
-            var page = document.getElementById('DLsiteConfigurationPage');
-            var newCfg = {
-                BackendUrl: (page.querySelector('#txtBackendUrl').value || '').trim(),
-                ApiToken: (page.querySelector('#txtApiToken').value || '').trim(),
-                EnableLogging: page.querySelector('#chkEnableLogging').checked
-            };
-
-            ApiClient.getPluginConfiguration(pluginId)
-                .then(function (current) {
-                    Object.assign(current, newCfg);
-                    return ApiClient.updatePluginConfiguration(pluginId, current);
-                })
-                .then(function (result) {
-                    Dashboard.processPluginConfigurationUpdateResult(result);
-                });
-        }
-
-        function getTabs() {
-            return [{ href: Dashboard.getPluginUrl(pluginId), name: 'DLsite Scraper' }];
-        }
-
-        function init(page) {
-            Dashboard.showLoadingMsg();
-            LibraryMenu.setTabs('plugins', 0, getTabs);
-            ApiClient.getPluginConfiguration(pluginId).then(function (config) { load(page, config); });
-            var btn = page.querySelector('#btnSave');
-            if (btn) { btn.addEventListener('click', save); }
-        }
-
-        function tryInit() {
-            var page = document.getElementById('DLsiteConfigurationPage');
-            if (page) { init(page); }
-        }
-
-        var pageEl = document.getElementById('DLsiteConfigurationPage');
-        if (pageEl) {
-            pageEl.addEventListener('pageshow', function () { init(this); });
-            pageEl.addEventListener('viewshow', function () { init(this); });
-        }
-
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(tryInit, 0);
-        } else {
-            document.addEventListener('DOMContentLoaded', tryInit);
-        }
-    })();
-</script>
+</body>
+</html>
