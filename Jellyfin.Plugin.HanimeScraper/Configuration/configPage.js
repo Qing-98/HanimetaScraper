@@ -13,7 +13,13 @@
 
     function save() {
         Dashboard.showLoadingMsg();
-        var page = document.querySelector('#HanimeScraperConfigPage');
+        var page = document.querySelector('#HanimeConfigurationPage');
+        if (!page) {
+            log('[Hanime] save skipped - configuration page not found');
+            Dashboard.hideLoadingMsg();
+            return;
+        }
+
         var newCfg = {
             BackendUrl: (page.querySelector('#txtBackendUrl').value || '').trim(),
             ApiToken: (page.querySelector('#txtApiToken').value || '').trim(),
@@ -47,27 +53,43 @@
         return [{ href: Dashboard.getPluginUrl(pluginId), name: 'Hanime Scraper' }];
     }
 
+    function onPageShow(page) {
+        Dashboard.showLoadingMsg();
+        LibraryMenu.setTabs('plugins', 0, getTabs);
+        ApiClient.getPluginConfiguration(pluginId)
+            .then(function (config) {
+                log('[Hanime] Loaded configuration from server:', config);
+                loadPage(page, config);
+            })
+            .catch(function (err) {
+                log('[Hanime] Error loading configuration:', err);
+                Dashboard.hideLoadingMsg();
+            });
+    }
+
+    var wired = false;
     function wire(){
-        var page = document.querySelector('#HanimeScraperConfigPage');
+        if (wired){
+            return;
+        }
+
+        var page = document.querySelector('#HanimeConfigurationPage');
         if (!page){
             log('[Hanime] page element not found, retry...');
             setTimeout(wire, 200);
             return;
         }
 
-        page.addEventListener('pageshow', function(){
-            Dashboard.showLoadingMsg();
-            LibraryMenu.setTabs('plugins', 0, getTabs);
-            ApiClient.getPluginConfiguration(pluginId)
-                .then(function (config) {
-                    log('[Hanime] Loaded configuration from server:', config);
-                    loadPage(page, config);
-                })
-                .catch(function (err) {
-                    log('[Hanime] Error loading configuration:', err);
-                    Dashboard.hideLoadingMsg();
-                });
-        });
+        wired = true;
+
+        function handleShow(){
+            onPageShow(page);
+        }
+
+        page.addEventListener('pageshow', handleShow);
+        page.addEventListener('viewshow', handleShow);
+
+        handleShow();
 
         var btn = page.querySelector('#btnSave');
         if (btn){
@@ -79,5 +101,10 @@
     }
 
     log('[Hanime] configPage bootstrap');
-    wire();
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        wire();
+    } else {
+        document.addEventListener('DOMContentLoaded', wire);
+    }
 })();
