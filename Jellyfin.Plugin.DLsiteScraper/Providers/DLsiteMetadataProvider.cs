@@ -226,9 +226,14 @@ public class DLsiteMetadataProvider
                 return result;
             }
 
+            var cfg = Plugin.PluginConfig;
+            var backendUrl = cfg?.BackendUrl?.TrimEnd('/') ?? "http://127.0.0.1:8585";
+            var tokenPresent = !string.IsNullOrWhiteSpace(cfg?.ApiToken);
+            var enableLogging = cfg?.EnableLogging == true;
+            LogInformation($"[Config] Using backendUrl='{backendUrl}', tokenPresent={tokenPresent}, enableLogging={enableLogging}");
+
             LogInformation($"Fetching metadata for DLsite ID: {id}");
 
-            var backendUrl = Plugin.PluginConfig?.BackendUrl?.TrimEnd('/') ?? "http://localhost:8585";
             var requestUrl = $"{backendUrl}/api/dlsite/{id}";
 
             using var client = CreateClientWithToken();

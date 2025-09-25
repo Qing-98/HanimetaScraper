@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
-using MediaBrowser.Controller.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
@@ -50,9 +50,30 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             new PluginPageInfo
             {
-                Name = Name,
-                EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.html"
+                Name = "DLsiteScraper",
+                EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", this.GetType().Namespace)
             }
         };
+    }
+
+    /// <summary>
+    /// Normalize and persist configuration when updated from the Dashboard.
+    /// </summary>
+    /// <param name="configuration">Incoming configuration.</param>
+    public override void UpdateConfiguration(BasePluginConfiguration configuration)
+    {
+        if (configuration is PluginConfiguration cfg)
+        {
+            cfg.BackendUrl = string.IsNullOrWhiteSpace(cfg.BackendUrl)
+                ? "http://127.0.0.1:8585"
+                : cfg.BackendUrl.Trim().TrimEnd('/');
+
+            cfg.ApiToken = string.IsNullOrWhiteSpace(cfg.ApiToken)
+                ? null
+                : cfg.ApiToken.Trim();
+        }
+
+        base.UpdateConfiguration(configuration);
+        SaveConfiguration();
     }
 }

@@ -16,7 +16,7 @@ Jellyfin 插件，通过连接后端刮削服务为 Hanime 内容提供元数据
 
 ## 📋 系统要求
 
-- **Jellyfin**：版本 10.8.0 或更高
+- **Jellyfin**：版本 10.10.7 或更高
 - **.NET 运行时**：.NET 8.0
 - **后端 服务**：ScraperBackendService 运行且可访问
 - **网络访问**：互联网连接用于内容获取
@@ -99,7 +99,7 @@ Jellyfin 插件，通过连接后端刮削服务为 Hanime 内容提供元数据
 ### 常见问题
 
 **插件未出现**
-- 验证 Jellyfin 版本（10.8.0+）
+- 验证 Jellyfin 版本（10.10.7+）
 - 检查插件安装目录
 - 重启 Jellyfin 服务器
 - 查看 Jellyfin 日志中的错误
@@ -134,100 +134,6 @@ Jellyfin 插件，通过连接后端刮削服务为 Hanime 内容提供元数据
 - **Windows**：`C:\ProgramData\Jellyfin\Server\logs\`
 - **Linux**：`/var/log/jellyfin/`
 - **Docker**：容器日志或挂载的日志目录
-
-## 🔧 开发
-
-### 从源码构建
-
-```bash
-# 克隆仓库
-git clone https://github.com/your-repo/HanimetaScraper.git
-cd HanimetaScraper/Jellyfin.Plugin.HanimeScraper
-
-# 恢复依赖项
-dotnet restore
-
-# 构建调试版本
-dotnet build
-
-# 构建发布版本
-dotnet build -c Release
-```
-
-### 代码质量
-
-此插件遵循严格的编码标准：
-
-- **StyleCop 分析器**：强制执行代码样式规则
-- **可空引用类型**：启用空安全
-- **XML 文档**：全面的 API 文档
-- **单元测试**：广泛的测试覆盖
-
-### 贡献
-
-1. Fork 仓库
-2. 创建功能分支
-3. 遵循编码标准
-4. 添加全面测试
-5. 更新文档
-6. 提交拉取请求
-
-## 📊 性能
-
-### 优化功能
-
-- **HTTP 客户端重用**：高效的连接池
-- **响应缓存**：减少冗余 API 调用
-- **异步操作**：非阻塞元数据获取
-- **错误恢复**：优雅处理后端故障
-
-### 性能提示
-
-- 使用本地后端部署获得最佳性能
-- 配置适当的超时值
-- 在后端服务中启用缓存
-- 监控到后端的网络延迟
-
-
-## 📚 API 集成
-
-### 后端 API 端点
-
-插件与这些后端端点通信：
-
-```http
-# 搜索内容
-GET /api/hanime/search?title={query}&max={limit}
-
-# 获取内容详情
-GET /api/hanime/{id}
-
-# 健康检查
-GET /health
-```
-
-### 响应格式
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "86994",
-    "title": "内容标题",
-    "description": "内容描述...",
-    "rating": 4.5,
-    "year": 2024,
-    "people": [
-      {
-        "name": "人员姓名",
-        "type": "Actor",
-        "role": "配音演员"
-      }
-    ],
-    "primary": "https://example.com/cover.jpg"
-  }
-}
-```
 
 ## 📝 许可证
 

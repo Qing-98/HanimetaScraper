@@ -7,6 +7,13 @@
     <CodeAnalysisRuleSet>jellyfin.ruleset</CodeAnalysisRuleSet>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>Jellyfin.Plugin.DLsiteScraper</AssemblyName>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyTitle>DLsite Scraper Plugin for Jellyfin</AssemblyTitle>
+    <AssemblyDescription>DLsite metadata provider with backend scraper service</AssemblyDescription>
+    <AssemblyCompany>Qing-98</AssemblyCompany>
+    <AssemblyProduct>Jellyfin Plugin</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2024</AssemblyCopyright>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +37,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Configuration\**\*.html" />
+    <EmbeddedResource Include="Configuration\**\*.js" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server\plugins')">
