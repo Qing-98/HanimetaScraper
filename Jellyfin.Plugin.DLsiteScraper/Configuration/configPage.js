@@ -13,7 +13,13 @@
 
     function save() {
         Dashboard.showLoadingMsg();
-        var page = document.querySelector('#DLsiteScraperConfigPage');
+        var page = document.querySelector('#DLsiteConfigurationPage');
+        if (!page) {
+            log('[DLsite] save skipped - configuration page not found');
+            Dashboard.hideLoadingMsg();
+            return;
+        }
+
         var newCfg = {
             BackendUrl: (page.querySelector('#txtBackendUrl').value || '').trim(),
             ApiToken: (page.querySelector('#txtApiToken').value || '').trim(),
@@ -48,27 +54,43 @@
         return [{ href: Dashboard.getPluginUrl(pluginId), name: 'DLsite Scraper' }];
     }
 
+    function onPageShow(page) {
+        Dashboard.showLoadingMsg();
+        LibraryMenu.setTabs('plugins', 0, getTabs);
+        ApiClient.getPluginConfiguration(pluginId)
+            .then(function (config) {
+                log('[DLsite] Loaded configuration from server:', config);
+                loadPage(page, config);
+            })
+            .catch(function (err) {
+                log('[DLsite] Error loading configuration:', err);
+                Dashboard.hideLoadingMsg();
+            });
+    }
+
+    var wired = false;
     function wire(){
-        var page = document.querySelector('#DLsiteScraperConfigPage');
+        if (wired){
+            return;
+        }
+
+        var page = document.querySelector('#DLsiteConfigurationPage');
         if (!page){
             log('[DLsite] page element not found, retry...');
             setTimeout(wire, 200);
             return;
         }
 
-        page.addEventListener('pageshow', function(){
-            Dashboard.showLoadingMsg();
-            LibraryMenu.setTabs('plugins', 0, getTabs);
-            ApiClient.getPluginConfiguration(pluginId)
-                .then(function (config) {
-                    log('[DLsite] Loaded configuration from server:', config);
-                    loadPage(page, config);
-                })
-                .catch(function (err) {
-                    log('[DLsite] Error loading configuration:', err);
-                    Dashboard.hideLoadingMsg();
-                });
-        });
+        wired = true;
+
+        function handleShow(){
+            onPageShow(page);
+        }
+
+        page.addEventListener('pageshow', handleShow);
+        page.addEventListener('viewshow', handleShow);
+
+        handleShow();
 
         var btn = page.querySelector('#btnSave');
         if (btn){
@@ -80,5 +102,10 @@
     }
 
     log('[DLsite] configPage bootstrap');
-    wire();
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        wire();
+    } else {
+        document.addEventListener('DOMContentLoaded', wire);
+    }
 })();
