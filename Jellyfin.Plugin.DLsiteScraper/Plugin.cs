@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Jellyfin.Plugin.DLsiteScraper.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -62,6 +63,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <param name="configuration">Incoming configuration.</param>
     public override void UpdateConfiguration(BasePluginConfiguration configuration)
     {
+        // Normalize values (trim, remove trailing '/') and persist
         if (configuration is PluginConfiguration cfg)
         {
             cfg.BackendUrl = string.IsNullOrWhiteSpace(cfg.BackendUrl)

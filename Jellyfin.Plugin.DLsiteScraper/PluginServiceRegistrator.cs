@@ -14,8 +14,11 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
+        // Register providers
         serviceCollection.AddSingleton<DLsiteMetadataProvider>();
         serviceCollection.AddSingleton<DLsiteImageProvider>();
-        serviceCollection.AddSingleton<DLsiteExternalId>();
+
+        // Register external ID for movies
+        serviceCollection.AddSingleton<MovieId>();
     }
 }

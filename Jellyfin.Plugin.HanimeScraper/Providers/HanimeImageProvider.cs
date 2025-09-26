@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.HanimeScraper.Client;
+using Jellyfin.Plugin.HanimeScraper.Configuration;
+using Jellyfin.Plugin.HanimeScraper.Extensions;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Providers;
@@ -13,7 +17,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.HanimeScraper.Providers;
 
 /// <summary>
-/// Hanime image provider.
+/// Hanime image provider that fetches images from the backend service.
 /// </summary>
 public class HanimeImageProvider : IRemoteImageProvider, IHasOrder
 {
@@ -22,7 +26,7 @@ public class HanimeImageProvider : IRemoteImageProvider, IHasOrder
     /// <summary>
     /// Initializes a new instance of the <see cref="HanimeImageProvider"/> class.
     /// </summary>
-    /// <param name="logger">The logger.</param>
+    /// <param name="logger">The logger instance.</param>
     public HanimeImageProvider(ILogger<HanimeImageProvider> logger)
     {
         this.logger = logger;
@@ -38,116 +42,144 @@ public class HanimeImageProvider : IRemoteImageProvider, IHasOrder
     public bool Supports(BaseItem item) => item is Movie;
 
     /// <inheritdoc />
-    public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
+    public System.Collections.Generic.IEnumerable<ImageType> GetSupportedImages(BaseItem item)
     {
-        return new[] { ImageType.Primary, ImageType.Backdrop };
+        return new[] { ImageType.Primary, ImageType.Backdrop, ImageType.Thumb };
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<RemoteImageInfo>> GetImages(BaseItem item, CancellationToken cancellationToken)
+    public async Task<System.Collections.Generic.IEnumerable<RemoteImageInfo>> GetImages(
+        BaseItem item,
+        CancellationToken cancellationToken)
     {
-        var id = item.GetProviderId("Hanime");
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            logger.LogDebug("No Hanime ID found for item {Name}", item.Name);
-            return new List<RemoteImageInfo>();
-        }
-
-        logger.LogInformation("Fetching images for Hanime ID: {Id}", id);
-
-        var backendUrl = Plugin.PluginConfig?.BackendUrl?.TrimEnd('/') ?? "http://localhost:8585";
-        var requestUrl = $"{backendUrl}/api/hanime/{id}";
-
-        using var client = CreateClientWithToken();
         try
         {
-            var response = await client.GetAsync(requestUrl, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var apiResponse = JsonDocument.Parse(json).RootElement;
-
-            // Check if API response is successful and extract data
-            if (!apiResponse.TryGetProperty("success", out var successProp) ||
-                !successProp.GetBoolean() ||
-                !apiResponse.TryGetProperty("data", out var root))
+            var hanimeId = item.GetProviderId("Hanime");
+            if (string.IsNullOrWhiteSpace(hanimeId))
             {
-                logger.LogWarning("API response indicates failure or missing data for id={Id}", id);
-                return new List<RemoteImageInfo>();
+                // Try to parse from item name
+                if (!string.IsNullOrWhiteSpace(item.Name) &&
+                    TryParseHanimeId(item.Name, out var parsedId))
+                {
+                    hanimeId = parsedId;
+                    logger.LogInformationIfEnabled($"Parsed Hanime ID from item name '{item.Name}': {hanimeId}");
+                }
+                else
+                {
+                    logger.LogDebugIfEnabled($"No Hanime ID found for item: {item.Name}");
+                    return Array.Empty<RemoteImageInfo>();
+                }
+            }
+
+            logger.LogInformationIfEnabled($"Fetching images for Hanime ID: {hanimeId}");
+
+            if (!ConfigurationManager.IsConfigurationValid())
+            {
+                logger.LogErrorIfEnabled("Invalid plugin configuration");
+                return Array.Empty<RemoteImageInfo>();
+            }
+
+            using var apiClient = CreateApiClient();
+            var metadata = await apiClient.GetMetadataAsync(hanimeId, cancellationToken).ConfigureAwait(false);
+
+            if (metadata == null)
+            {
+                logger.LogWarningIfEnabled($"No metadata found for Hanime ID: {hanimeId}");
+                return Array.Empty<RemoteImageInfo>();
             }
 
             var images = new List<RemoteImageInfo>();
 
-            // Primary image (使用小写属性名)
-            if (root.TryGetProperty("primary", out var primary) && !string.IsNullOrWhiteSpace(primary.GetString()))
+            // Add primary image if available
+            if (!string.IsNullOrWhiteSpace(metadata.Primary))
             {
-                var primaryUrl = primary.GetString()!;
-                logger.LogDebug("Found primary image: {Url}", primaryUrl);
                 images.Add(new RemoteImageInfo
                 {
-                    Type = ImageType.Primary,
-                    Url = primaryUrl,
-                    ProviderName = Name
+                    ProviderName = Name,
+                    Url = metadata.Primary,
+                    Type = ImageType.Primary
+                });
+
+                // Also add as backdrop and thumb
+                images.Add(new RemoteImageInfo
+                {
+                    ProviderName = Name,
+                    Url = metadata.Primary,
+                    Type = ImageType.Backdrop
+                });
+
+                images.Add(new RemoteImageInfo
+                {
+                    ProviderName = Name,
+                    Url = metadata.Primary,
+                    Type = ImageType.Thumb
                 });
             }
 
-            // Backdrop image (使用小写属性名)
-            if (root.TryGetProperty("backdrop", out var backdrop) && !string.IsNullOrWhiteSpace(backdrop.GetString()))
-            {
-                var backdropUrl = backdrop.GetString()!;
-                logger.LogDebug("Found backdrop image: {Url}", backdropUrl);
-                images.Add(new RemoteImageInfo
-                {
-                    Type = ImageType.Backdrop,
-                    Url = backdropUrl,
-                    ProviderName = Name
-                });
-            }
-
-            // Thumbnails as backdrops (使用小写属性名)
-            if (root.TryGetProperty("thumbnails", out var thumbnails) && thumbnails.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var thumb in thumbnails.EnumerateArray())
-                {
-                    var url = thumb.GetString();
-                    if (!string.IsNullOrWhiteSpace(url))
-                    {
-                        logger.LogDebug("Found thumbnail image: {Url}", url);
-                        images.Add(new RemoteImageInfo
-                        {
-                            Type = ImageType.Backdrop,
-                            Url = url,
-                            ProviderName = Name
-                        });
-                    }
-                }
-            }
-
-            logger.LogInformation("Found {Count} images for Hanime ID: {Id}", images.Count, id);
+            logger.LogInformationIfEnabled($"Found {images.Count} images for Hanime ID: {hanimeId}");
             return images;
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch images for Hanime ID: {Id}", id);
-            return new List<RemoteImageInfo>();
+            logger.LogErrorIfEnabled($"Error fetching images for item: {item.Name}", ex);
+            return Array.Empty<RemoteImageInfo>();
         }
     }
 
     /// <inheritdoc />
-    public Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
+    public async Task<HttpResponseMessage> GetImageResponse(string url, CancellationToken cancellationToken)
     {
-        logger.LogDebug("Fetching image from URL: {Url}", url);
-        return new HttpClient().GetAsync(url, cancellationToken);
+        using var apiClient = CreateApiClient();
+        return await apiClient.GetImageResponseAsync(url, cancellationToken).ConfigureAwait(false);
     }
 
-    private HttpClient CreateClientWithToken()
+    /// <summary>
+    /// Attempts to parse a Hanime ID from various input formats.
+    /// </summary>
+    /// <param name="input">The input string to parse.</param>
+    /// <param name="id">The extracted Hanime ID if parsing succeeds.</param>
+    /// <returns>True if a valid ID was extracted, false otherwise.</returns>
+    private static bool TryParseHanimeId(string? input, out string id)
     {
-        var client = new HttpClient();
-        var token = Plugin.PluginConfig?.ApiToken;
-        if (!string.IsNullOrWhiteSpace(token))
+        id = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(input))
         {
-            client.DefaultRequestHeaders.Add("X-API-Token", token);
+            return false;
         }
 
-        return client;
+        var cleaned = input.Trim();
+
+        // Create regex patterns locally to avoid static field naming conflicts
+        // Make numeric ID pattern more strict - require 4+ digits to avoid false positives
+        var numericIdRegex = new Regex(@"^\d{4,}$", RegexOptions.Compiled);
+        var urlIdRegex = new Regex(@"[?&]v=(\d+)", RegexOptions.Compiled);
+
+        // Check if it's a pure numeric ID with at least 4 digits
+        if (numericIdRegex.IsMatch(cleaned))
+        {
+            id = cleaned;
+            return true;
+        }
+
+        // Check if it's a URL containing the ID
+        var urlMatch = urlIdRegex.Match(cleaned);
+        if (urlMatch.Success)
+        {
+            id = urlMatch.Groups[1].Value;
+            return true;
+        }
+
+        return false;
+    }
+
+    private HanimeApiClient CreateApiClient()
+    {
+        return new HanimeApiClient(
+            logger as ILogger<HanimeApiClient> ??
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<HanimeApiClient>.Instance,
+            ConfigurationManager.GetBackendUrl(),
+            ConfigurationManager.GetApiToken(),
+            ConfigurationManager.IsLoggingEnabled());
     }
 }

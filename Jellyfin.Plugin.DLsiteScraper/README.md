@@ -16,7 +16,7 @@ A Jellyfin plugin that provides metadata for DLsite content by connecting to a b
 
 ## 📋 Requirements
 
-- **Jellyfin**: Version 10.8.0 or higher
+- **Jellyfin**: Version 10.10.7 or higher
 - **.NET Runtime**: .NET 8.0
 - **Backend Service**: ScraperBackendService running and accessible
 - **Network Access**: Internet connection for content fetching
@@ -31,7 +31,7 @@ Access plugin configuration via: **Admin Dashboard → Plugins → DLsite Scrape
 |---------|-------------|---------|---------|
 | **Backend URL** | URL of the scraper backend service | `http://127.0.0.1:8585` | `https://scraper.mydomain.com` |
 | **API Token** | Authentication token (optional) | `null` | `your-secret-token-123` |
-| **Enable Logging** | Plugin logging control | `true` | `false` (for production) |
+| **Enable Logging** | Plugin logging control | `false` | `true` (for debugging) |
 
 ### Backend URL Configuration
 
@@ -99,7 +99,7 @@ Results: Specific work extracted from URL
 ### Common Issues
 
 **Plugin Not Appearing**
-- Verify Jellyfin version (10.8.0+)
+- Verify Jellyfin version (10.10.7+)
 - Check plugin installation directory
 - Restart Jellyfin server
 - Review Jellyfin logs for errors

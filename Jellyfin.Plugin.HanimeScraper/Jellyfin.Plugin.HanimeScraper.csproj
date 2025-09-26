@@ -38,7 +38,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Configuration\**\*.html" />
-    <EmbeddedResource Include="Configuration\**\*.js" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server\plugins')">

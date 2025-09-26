@@ -432,8 +432,8 @@ public sealed class HanimeProvider : IMediaProvider
             {
                 // Use the same image as both Primary and Thumbnail
                 meta.Primary = poster;
+                meta.Backdrop = poster;
                 meta.Thumbnails.Add(poster);
-                // Leave Backdrop empty (not set)
             }
         }
 

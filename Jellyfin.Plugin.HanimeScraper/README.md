@@ -16,7 +16,7 @@ A Jellyfin plugin that provides metadata for Hanime content by connecting to a b
 
 ## 📋 Requirements
 
-- **Jellyfin**: Version 10.8.0 or higher
+- **Jellyfin**: Version 10.10.7 or higher
 - **.NET Runtime**: .NET 8.0
 - **Backend Service**: ScraperBackendService running and accessible
 - **Network Access**: Internet connection for content fetching
@@ -31,7 +31,7 @@ Access plugin configuration via: **Admin Dashboard → Plugins → Hanime Scrape
 |---------|-------------|---------|---------|
 | **Backend URL** | URL of the scraper backend service | `http://127.0.0.1:8585` | `https://scraper.mydomain.com` |
 | **API Token** | Authentication token (optional) | `null` | `your-secret-token-123` |
-| **Enable Logging** | Plugin logging control | `true` | `false` (for production) |
+| **Enable Logging** | Plugin logging control | `false` | `true` (for debugging) |
 
 ### Backend URL Configuration
 
@@ -69,9 +69,11 @@ The plugin automatically detects Hanime content during library scans:
 
 ### Supported ID Formats
 
-- **Direct ID**: `86994`, `12345`
+- **Direct ID**: `86994`, `12345` (4+ digits required)
 - **URL Format**: `https://hanime1.me/watch?v=86994`
 - **Mixed Content**: Plugin extracts ID from various formats
+
+**Note**: To avoid false positives during title searches, numeric IDs must be at least 4 digits long. Short numbers like "123" or "99" will be treated as part of the title rather than IDs.
 
 ## 🔍 Search Examples
 
@@ -93,12 +95,18 @@ Search Term: "https://hanime1.me/watch?v=86994"
 Results: Specific anime extracted from URL
 ```
 
+### Mixed Content Search
+```
+Search Term: "Episode 123"
+Results: Title search for "Episode 123" (not treated as ID 123)
+```
+
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
 **Plugin Not Appearing**
-- Verify Jellyfin version (10.8.0+)
+- Verify Jellyfin version (10.10.7+)
 - Check plugin installation directory
 - Restart Jellyfin server
 - Review Jellyfin logs for errors
@@ -118,6 +126,7 @@ Results: Specific anime extracted from URL
 - Check network connectivity to backend
 - Verify search query format
 - Test backend search: `curl "http://backend:8585/api/hanime/search?title=test"`
+- For numeric searches, ensure ID has 4+ digits for ID-based search
 
 ### Debug Mode
 

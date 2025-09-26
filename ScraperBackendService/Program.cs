@@ -27,10 +27,14 @@ using System.Text.Json;
 /// // API endpoints available:
 /// GET /                           - Service info and health status
 /// GET /health                     - Health check endpoint
-/// GET /api/hanime/search?title=   - Search Hanime content
-/// GET /api/hanime/{id}            - Get Hanime content details
-/// GET /api/dlsite/search?title=   - Search DLsite content
-/// GET /api/dlsite/{id}            - Get DLsite content details
+/// GET /api/hanime/search?title=   - Search Hanime content by title (no ID detection)
+/// GET /api/hanime/{id}            - Get Hanime content details by specific ID
+/// GET /api/dlsite/search?title=   - Search DLsite content by title (no ID detection)
+/// GET /api/dlsite/{id}            - Get DLsite content details by specific ID
+/// 
+/// Note: Search endpoints now strictly treat input as search keywords.
+/// Even if the input looks like an ID (e.g., "123456" or "RJ123456"), 
+/// it will be used as a search term rather than switching to ID-based retrieval.
 /// </example>
 
 var builder = WebApplication.CreateBuilder(args);
@@ -132,7 +136,7 @@ app.MapGet("/r/dlsite/{id}", (string id) =>
 /// <returns>List of Hanime metadata objects</returns>
 /// <example>
 /// GET /api/hanime/search?title=Love&max=5
-/// GET /api/hanime/search?title=Romance&max=10&genre=Comedy
+/// GET /api/hanime/search?title=123456&max=5 (will search for "123456" as text, not as ID)
 /// </example>
 app.MapGet("/api/hanime/search", async (
     string title,
@@ -147,6 +151,8 @@ app.MapGet("/api/hanime/search", async (
         logger.LogInformation("Hanime search request: {Title}", title);
 
         var maxResults = Math.Min(max ?? 12, 50); // Limit maximum results to prevent overload
+        
+        // Direct search without any ID parsing - title is always treated as search keyword
         var hits = await provider.SearchAsync(title, maxResults, ct);
 
         var results = new List<HanimeMetadata>();
@@ -265,7 +271,7 @@ app.MapGet("/api/hanime/{id}", async (
 /// <returns>List of DLsite metadata objects</returns>
 /// <example>
 /// GET /api/dlsite/search?title=恋爱&max=5
-/// GET /api/dlsite/search?title=RJ123456&max=1
+/// GET /api/dlsite/search?title=RJ123456&max=1 (will search for "RJ123456" as text, not as ID)
 /// </example>
 app.MapGet("/api/dlsite/search", async (
     string title,
@@ -278,6 +284,8 @@ app.MapGet("/api/dlsite/search", async (
         logger.LogInformation("DLsite search request: {Title}", title);
 
         var maxResults = Math.Min(max ?? 12, 50);
+        
+        // Direct search without any ID parsing - title is always treated as search keyword
         var hits = await provider.SearchAsync(title, maxResults, ct);
 
         var results = new List<HanimeMetadata>();

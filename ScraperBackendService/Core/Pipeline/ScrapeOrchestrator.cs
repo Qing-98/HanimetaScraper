@@ -43,8 +43,8 @@ public sealed class ScrapeOrchestrator
 
             case ScrapeRoute.Auto:
             default:
-                if (_provider.TryParseId(input, out var id2))
-                    return await FetchByIdAsync(id2, ct);
+                // Auto mode now always uses search instead of intelligent ID detection
+                // This ensures that title search remains title search even if the input looks like an ID
                 return await SearchAndFetchAsync(input, maxResults, ct);
         }
     }

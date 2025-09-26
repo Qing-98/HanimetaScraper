@@ -199,13 +199,11 @@ public static class ScrapingUtils
         var m = HanimeUrlIdRegex.Match(t);
         if (m.Success) { id = m.Groups[1].Value; return true; }
 
-        // Try pure numeric (allow any numeric input for flexibility)
+        // Try pure numeric (only accept numeric input as valid ID)
         if (HanimeBareIdRegex.IsMatch(t)) { id = t; return true; }
 
-        // For non-numeric input, treat as search keyword and accept it
-        // This allows flexible searching with any keyword
-        id = t;
-        return true;
+        // For non-numeric input, this is NOT a valid ID - should use search instead
+        return false;
     }
 
     /// <summary>

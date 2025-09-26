@@ -1,9 +1,9 @@
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.HanimeScraper;
+namespace Jellyfin.Plugin.DLsiteScraper.Configuration;
 
 /// <summary>
-/// Plugin configuration for Hanime Scraper.
+/// Plugin configuration for DLsite Scraper.
 /// </summary>
 public class PluginConfiguration : BasePluginConfiguration
 {
@@ -20,5 +20,5 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets a value indicating whether detailed logging is enabled.
     /// </summary>
-    public bool EnableLogging { get; set; } = true;
+    public bool EnableLogging { get; set; } = false;
 }
