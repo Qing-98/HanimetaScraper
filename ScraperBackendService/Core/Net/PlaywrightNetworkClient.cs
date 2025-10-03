@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using ScraperBackendService.AntiCloudflare;
 using ScraperBackendService.Core.Abstractions;
+using ScraperBackendService.Core.Logging;
+using System.Diagnostics;
 
 namespace ScraperBackendService.Core.Net;
 
@@ -287,7 +289,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         catch (OperationCanceledException) { throw; }
         catch (Exception ex1)
         {
-            _log.LogWarning(ex1, "[Nav] primary attempt failed: {Url}", url);
+            _log?.LogWarning("PageNavigation", "Primary attempt failed", url, ex1);
 
             // Second attempt: slow retry with extended timeout and context rotation flag
             try
@@ -295,12 +297,13 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
                 var page = await OpenOnceAsync(url, forDetail, primary: false, ct);
                 // Slow retry succeeded, notify ContextManager to rotate current Context
                 _ctxMgr.FlagChallengeOnCurrent(forDetail: forDetail);
-                _log.LogInformation("[Nav] slow-retry succeeded, flagged context for rotation");
+                _log?.LogSuccess("PageNavigation", url);
+                _log?.LogDebug("PageNavigation", "Flagged context for rotation after slow retry", url);
                 return page;
             }
             catch (Exception ex2)
             {
-                _log.LogWarning(ex2, "[Nav] slow-retry failed: {Url}", url);
+                _log?.LogWarning("PageNavigation", "Slow retry failed", url, ex2);
                 return null;
             }
         }
@@ -323,6 +326,8 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         var ctx = await _ctxMgr.GetOrCreateContextAsync(forDetail);
         var page = await ctx.NewPageAsync();
         _ctxMgr.BumpOpenedPages(ctx, forDetail);
+
+        var sw = Stopwatch.StartNew();
 
         try
         {
@@ -355,7 +360,11 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
             // Challenge detection (URL / DOM patterns)
             var html = await page.ContentAsync();
             if (LooksLikeChallenge(page.Url, html))
+            {
+                sw.Stop();
+                _log?.LogWarning("AntiBot", $"Challenge detected after {sw.ElapsedMilliseconds}ms while loading {url}");
                 throw new InvalidOperationException("Challenge detected.");
+            }
 
             return page;
         }
@@ -496,11 +505,30 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
     /// </summary>
     /// <param name="page">Page to close (can be null)</param>
     /// <returns>Task representing the async close operation</returns>
-    private static async Task SafeClosePage(IPage? page)
+    private async Task SafeClosePage(IPage? page)
     {
         if (page is null) return;
+        
+        // Track the context and page type before closing
+        var ctx = page.Context;
+        bool forDetail = false; // We'll determine this from URL if possible
+        
+        try
+        {
+            // Try to determine if this was a detail page from the URL
+            var url = page.Url;
+            forDetail = !string.IsNullOrEmpty(url) && url.Contains("/watch", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { /* ignore errors when getting URL */ }
+        
         try { if (!page.IsClosed) await page.CloseAsync(); } catch { }
+        
         // Don't close Context! ContextManager handles its lifecycle
+        // Decrement active page count so context can be rotated when appropriate
+        if (_ctxMgr != null)
+        {
+            _ctxMgr.DecrementActivePages(ctx, forDetail);
+        }
     }
 
     /// <summary>
@@ -521,4 +549,25 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
     /// </summary>
     /// <returns>Completed value task</returns>
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Properly closes a page obtained from OpenPageAsync while maintaining correct context lifecycle.
+    /// </summary>
+    /// <param name="page">Page to close (obtained from OpenPageAsync)</param>
+    /// <returns>Task representing the close operation</returns>
+    public async Task ClosePageAsync(IPage? page)
+    {
+        if (page is null) return;
+        
+        if (_useContextManager)
+        {
+            await SafeClosePage(page);
+        }
+        else
+        {
+            // In simple mode, we only close the page, not the context
+            // The context is managed by whoever called NewContextAndPageAsync
+            try { if (!page.IsClosed) await page.CloseAsync(); } catch { }
+        }
+    }
 }

@@ -17,6 +17,7 @@ obj/
 **/bin/
 **/obj/
 .vscode/          # VS Code settings (remove if you want to share)
+todolist.txt
 
 # NuGet packages
 *.nupkg

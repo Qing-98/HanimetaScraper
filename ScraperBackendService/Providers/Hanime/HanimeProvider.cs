@@ -3,6 +3,8 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using ScraperBackendService.Core.Abstractions;
+using ScraperBackendService.Core.Net;
+using ScraperBackendService.Core.Logging;
 using ScraperBackendService.Core.Normalize;
 using ScraperBackendService.Core.Parsing;
 using ScraperBackendService.Core.Routing;
@@ -115,7 +117,7 @@ public sealed class HanimeProvider : IMediaProvider
             catch (TimeoutException)
             {
                 // No search results found, return empty list
-                _log.LogInformation("No search results found for keyword: {Keyword}", keyword);
+                _log.LogDebug("HanimeSearch", "No search results found", keyword);
                 return new List<ScraperBackendService.Core.Abstractions.SearchHit>();
             }
 
@@ -152,11 +154,7 @@ public sealed class HanimeProvider : IMediaProvider
             // Log search results
             if (hits.Count > 0)
             {
-                _log.LogInformation("[Hanime] Search completed: {Keyword}, found {Count} hits", keyword, hits.Count);
-            }
-            else
-            {
-                _log.LogInformation("[Hanime] Search completed: {Keyword}, no search hits found", keyword);
+                _log.LogSuccess("HanimeSearch", keyword, hits.Count);
             }
 
             return hits;
@@ -164,7 +162,7 @@ public sealed class HanimeProvider : IMediaProvider
         catch (TimeoutException ex)
         {
             // Handle timeout gracefully by falling back to HTML parsing
-            _log.LogWarning("Playwright timeout during search for keyword: {Keyword}, falling back to HTML parsing. Error: {Error}", keyword, ex.Message);
+            _log.LogWarning("HanimeSearch", "Playwright timeout, falling back to HTML parsing", keyword, ex);
             try
             {
                 var html = await _net.GetHtmlAsync(searchUrl, ct);
@@ -172,13 +170,17 @@ public sealed class HanimeProvider : IMediaProvider
             }
             catch (Exception fallbackEx)
             {
-                _log.LogError(fallbackEx, "Both Playwright and HTML parsing failed for keyword: {Keyword}", keyword);
+                _log.LogFailure("HanimeSearch", "Both Playwright and HTML parsing failed", keyword, fallbackEx);
                 return new List<ScraperBackendService.Core.Abstractions.SearchHit>();
             }
         }
         finally
         {
-            await ClosePageAndContextAsync(page);
+            // Use the network client's ClosePageAsync to properly manage page lifecycle
+            if (page != null && _net is PlaywrightNetworkClient playwrightClient)
+            {
+                await playwrightClient.ClosePageAsync(page);
+            }
         }
     }
 
@@ -196,6 +198,7 @@ public sealed class HanimeProvider : IMediaProvider
     /// </example>
     private static IReadOnlyList<SearchHit> ParseSearchFromHtml(string html, string baseUrl, int maxResults)
     {
+        // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -251,14 +254,17 @@ public sealed class HanimeProvider : IMediaProvider
     ///     Console.WriteLine($"Cover: {metadata.Primary}");
     /// }
     /// </example>
-    public async Task<HanimeMetadata?> FetchDetailAsync(string detailUrl, CancellationToken ct)
+    public async Task<Metadata?> FetchDetailAsync(string detailUrl, CancellationToken ct)
     {
         IPage? page = null;
         try
         {
             page = await _net.OpenPageAsync(detailUrl, ct);
             string html;
-            var seedMeta = new HanimeMetadata { SourceUrls = new List<string>() };
+            
+            // Create seed metadata with sourceUrls properly initialized
+            var seedMeta = new Metadata();
+            seedMeta.SourceUrls.Add(detailUrl);
 
             if (page is null)
             {
@@ -276,7 +282,11 @@ public sealed class HanimeProvider : IMediaProvider
         }
         finally
         {
-            await ClosePageAndContextAsync(page);
+            // Use the network client's ClosePageAsync to properly manage page lifecycle
+            if (page != null && _net is PlaywrightNetworkClient playwrightClient)
+            {
+                await playwrightClient.ClosePageAsync(page);
+            }
         }
     }
 
@@ -292,7 +302,7 @@ public sealed class HanimeProvider : IMediaProvider
     /// await TryFillTitleViaLocatorAsync(page, metadata, CancellationToken.None);
     /// // metadata.Title and metadata.OriginalTitle will be populated if successful
     /// </example>
-    private static async Task TryFillTitleViaLocatorAsync(IPage page, HanimeMetadata meta, CancellationToken ct)
+    private static async Task TryFillTitleViaLocatorAsync(IPage page, Metadata meta, CancellationToken ct)
     {
         try
         {
@@ -326,8 +336,9 @@ public sealed class HanimeProvider : IMediaProvider
     ///     Console.WriteLine($"Rating: {metadata.Rating}/5");
     /// }
     /// </example>
-    private HanimeMetadata? ParseDetailHtml(string html, string detailUrl, HanimeMetadata? seed)
+    private Metadata? ParseDetailHtml(string html, string detailUrl, Metadata? seed)
     {
+        // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -344,8 +355,18 @@ public sealed class HanimeProvider : IMediaProvider
             return null;
         }
 
-        var meta = seed ?? new HanimeMetadata();
-        if (!meta.SourceUrls.Contains(detailUrl)) meta.SourceUrls.Add(detailUrl);
+        var meta = seed ?? new Metadata();
+        
+        // Ensure SourceUrls is initialized and add detailUrl only if not already present
+        if (meta.SourceUrls == null)
+        {
+            meta.SourceUrls = new List<string>();
+        }
+        if (!meta.SourceUrls.Contains(detailUrl))
+        {
+            meta.SourceUrls.Add(detailUrl);
+        }
+        
         if (IdParsers.TryExtractHanimeIdFromUrl(detailUrl, out var id)) meta.ID = id;
 
         // Extract title - remove brackets and clean text
@@ -393,7 +414,7 @@ public sealed class HanimeProvider : IMediaProvider
                 tag = CleanTag(tag);
                 if (!string.IsNullOrWhiteSpace(tag)) tagSet.Add(tag);
             }
-            meta.Genres = tagSet.ToList();
+            meta.Tags = tagSet.ToList();
         }
 
         // Extract rating: convert percentage to 0-5 scale
@@ -437,6 +458,17 @@ public sealed class HanimeProvider : IMediaProvider
             }
         }
 
+        // Clean titles before returning to frontend
+        if (!string.IsNullOrWhiteSpace(meta.Title))
+        {
+            meta.Title = TitleCleaner.CleanTitle(meta.Title);
+        }
+
+        if (!string.IsNullOrWhiteSpace(meta.OriginalTitle))
+        {
+            meta.OriginalTitle = TitleCleaner.CleanTitle(meta.OriginalTitle);
+        }
+
         return meta;
     }
 
@@ -461,34 +493,5 @@ public sealed class HanimeProvider : IMediaProvider
                   .Replace("\u00A0", "")
                   .Replace("&nbsp;", "")
                   .Trim();
-    }
-
-    /// <summary>
-    /// Safely closes a Playwright page and its browser context.
-    /// Handles cleanup even if the page or context is already closed.
-    /// </summary>
-    /// <param name="page">Playwright page to close (can be null)</param>
-    /// <returns>Task representing the asynchronous cleanup operation</returns>
-    /// <example>
-    /// IPage? page = await browser.NewPageAsync();
-    /// try
-    /// {
-    ///     // Use page...
-    /// }
-    /// finally
-    /// {
-    ///     await ClosePageAndContextAsync(page);
-    /// }
-    /// </example>
-    private static async Task ClosePageAndContextAsync(IPage? page)
-    {
-        if (page is null) return;
-        try
-        {
-            var ctx = page.Context;
-            if (!page.IsClosed) await page.CloseAsync();
-            await ctx.CloseAsync();
-        }
-        catch { /* Ignore cleanup errors */ }
     }
 }

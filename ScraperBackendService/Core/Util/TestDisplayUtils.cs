@@ -10,7 +10,7 @@ public static class TestDisplayUtils
     /// <summary>
     /// Display detailed metadata information
     /// </summary>
-    public static void DisplayDetailedMetadata(HanimeMetadata meta, int index)
+    public static void DisplayDetailedMetadata(Metadata meta, int index)
     {
         Console.WriteLine($"📋 Result #{index}:");
         Console.WriteLine($"   🏷️  ID: {meta.ID ?? "❌Empty"}");
@@ -89,7 +89,7 @@ public static class TestDisplayUtils
     /// <summary>
     /// Display detailed image information
     /// </summary>
-    private static void DisplayImageDetails(HanimeMetadata meta)
+    private static void DisplayImageDetails(Metadata meta)
     {
         var hasAnyImage = !string.IsNullOrWhiteSpace(meta.Primary) ||
                          !string.IsNullOrWhiteSpace(meta.Backdrop) ||
@@ -164,7 +164,7 @@ public static class TestDisplayUtils
     /// <summary>
     /// Display simplified metadata information with basic image info
     /// </summary>
-    public static void DisplaySimpleMetadata(HanimeMetadata meta)
+    public static void DisplaySimpleMetadata(Metadata meta)
     {
         Console.WriteLine($"- ID: {meta.ID}");
         Console.WriteLine($"  Title: {(string.IsNullOrWhiteSpace(meta.Title) ? "❌Empty" : meta.Title)}");

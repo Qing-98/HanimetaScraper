@@ -1,5 +1,6 @@
 using ScraperBackendService.Configuration;
 using Microsoft.Extensions.Options;
+using ScraperBackendService.Core.Logging;
 
 namespace ScraperBackendService.Middleware;
 
@@ -101,7 +102,7 @@ public sealed class TokenAuthenticationMiddleware
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                _logger.LogWarning("API request without token from {RemoteIP}", context.Connection.RemoteIpAddress);
+                _logger.LogWarning("Authentication", "Missing token", context.Connection.RemoteIpAddress?.ToString());
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsync("Missing authentication token");
                 return;
@@ -109,13 +110,13 @@ public sealed class TokenAuthenticationMiddleware
 
             if (!string.Equals(token, _config.AuthToken, StringComparison.Ordinal))
             {
-                _logger.LogWarning("API request with invalid token from {RemoteIP}", context.Connection.RemoteIpAddress);
+                _logger.LogWarning("Authentication", "Invalid token", context.Connection.RemoteIpAddress?.ToString());
                 context.Response.StatusCode = 401;
                 await context.Response.WriteAsync("Invalid authentication token");
                 return;
             }
 
-            _logger.LogDebug("API request authenticated successfully from {RemoteIP}", context.Connection.RemoteIpAddress);
+            _logger.LogDebug("Authentication", "Token validated", context.Connection.RemoteIpAddress?.ToString());
         }
 
         await _next(context);

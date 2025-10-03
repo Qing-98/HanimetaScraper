@@ -134,7 +134,7 @@ public interface IMediaProvider
     ///     Console.WriteLine($"Images: Primary={metadata.Primary}, Backdrop={metadata.Backdrop}, Thumbnails={metadata.Thumbnails.Count}");
     /// }
     /// </example>
-    Task<HanimeMetadata?> FetchDetailAsync(
+    Task<Metadata?> FetchDetailAsync(
         string detailUrl, CancellationToken ct);
 }
 

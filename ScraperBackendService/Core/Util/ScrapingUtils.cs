@@ -153,7 +153,7 @@ public static class ScrapingUtils
     /// <summary>
     /// Add thumbnail to metadata, automatically convert WebP to JPG
     /// </summary>
-    public static void AddThumb(HanimeMetadata meta, string? url)
+    public static void AddThumb(Metadata meta, string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return;
 
@@ -312,7 +312,7 @@ public static class ScrapingUtils
     /// // Add director with standardized type
     /// AddPerson(metadata, "山田監督", "Director", "監督");
     /// </example>
-    public static void AddPerson(HanimeMetadata meta, string name, string normalizedType, string? originalRole)
+    public static void AddPerson(Metadata meta, string name, string normalizedType, string? originalRole)
     {
         if (string.IsNullOrWhiteSpace(name)) return;
 

@@ -347,7 +347,7 @@ class Program
     /// var results = await TestProviderAsync("DLsite", "RJ123456", ScrapeRoute.ById, httpClient, loggerFactory, ct);
     /// var results = await TestProviderAsync("Hanime", "Love", ScrapeRoute.ByFilename, playwrightClient, loggerFactory, ct);
     /// </example>
-    private static async Task<List<HanimeMetadata>> TestProviderAsync(
+    private static async Task<List<Metadata>> TestProviderAsync(
         string providerName,
         string input,
         ScrapeRoute route,

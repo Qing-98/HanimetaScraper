@@ -11,8 +11,8 @@ namespace ScraperBackendService.Configuration;
 ///     "Port": 8585,
 ///     "Host": "0.0.0.0",
 ///     "AuthToken": "your-secure-token",
-///     "EnableDetailedLogging": true,
-///     "MaxConcurrentRequests": 20,
+///     "HanimeMaxConcurrentRequests": 5,
+///     "DlsiteMaxConcurrentRequests": 5,
 ///     "RequestTimeoutSeconds": 120
 ///   }
 /// }
@@ -88,35 +88,6 @@ public sealed class ServiceConfiguration
     public string TokenHeaderName { get; set; } = "X-API-Token";
 
     /// <summary>
-    /// Whether to enable detailed logging for debugging and monitoring.
-    /// When enabled, logs include detailed scraping operations and network requests.
-    /// </summary>
-    /// <example>
-    /// // Enable for development/debugging
-    /// EnableDetailedLogging = true;
-    ///
-    /// // Disable for production (default)
-    /// EnableDetailedLogging = false;
-    /// </example>
-    public bool EnableDetailedLogging { get; set; } = false;
-
-    /// <summary>
-    /// Maximum number of concurrent requests the service can handle.
-    /// Default is 10. Helps prevent server overload.
-    /// </summary>
-    /// <example>
-    /// // Low-resource server
-    /// MaxConcurrentRequests = 5;
-    ///
-    /// // High-performance server
-    /// MaxConcurrentRequests = 50;
-    ///
-    /// // Default setting
-    /// MaxConcurrentRequests = 10;
-    /// </example>
-    public int MaxConcurrentRequests { get; set; } = 10;
-
-    /// <summary>
     /// Request timeout duration in seconds. Default is 60 seconds.
     /// Applied to both HTTP requests and scraping operations.
     /// </summary>
@@ -131,4 +102,49 @@ public sealed class ServiceConfiguration
     /// RequestTimeoutSeconds = 60;
     /// </example>
     public int RequestTimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Provider-specific limit for Hanime concurrent requests.
+    /// Controls the maximum number of simultaneous requests to Hanime website.
+    /// </summary>
+    /// <example>
+    /// // Conservative setting for shared hosting
+    /// HanimeMaxConcurrentRequests = 3;
+    ///
+    /// // Aggressive setting for dedicated server
+    /// HanimeMaxConcurrentRequests = 10;
+    ///
+    /// // Default setting
+    /// HanimeMaxConcurrentRequests = 5;
+    /// </example>
+    public int HanimeMaxConcurrentRequests { get; set; } = 5;
+
+    /// <summary>
+    /// Provider-specific limit for DLsite concurrent requests.
+    /// Controls the maximum number of simultaneous requests to DLsite website.
+    /// </summary>
+    /// <example>
+    /// // Conservative setting for shared hosting
+    /// DlsiteMaxConcurrentRequests = 3;
+    ///
+    /// // Aggressive setting for dedicated server
+    /// DlsiteMaxConcurrentRequests = 10;
+    ///
+    /// // Default setting
+    /// DlsiteMaxConcurrentRequests = 5;
+    /// </example>
+    public int DlsiteMaxConcurrentRequests { get; set; } = 5;
+
+    /// <summary>
+    /// Whether to enable aggressive memory optimization including frequent garbage collection.
+    /// When enabled, triggers more frequent GC to prevent memory buildup at the cost of some performance.
+    /// </summary>
+    /// <example>
+    /// // Enable for memory-constrained environments
+    /// EnableAggressiveMemoryOptimization = true;
+    ///
+    /// // Disable for high-performance scenarios (default)
+    /// EnableAggressiveMemoryOptimization = false;
+    /// </example>
+    public bool EnableAggressiveMemoryOptimization { get; set; } = false;
 }

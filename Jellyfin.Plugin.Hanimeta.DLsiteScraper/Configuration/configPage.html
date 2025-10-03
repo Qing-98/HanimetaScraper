@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>DLsite Scraper</title>
+</head>
+
+<body>
+<div id="DLsiteScraperConfigurationPage" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-linkbutton" data-role="page">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <h1>DLsite Scraper</h1>
+
+            <div class="readOnlyContent">
+                <p class="description1">DLsite metadata provider with backend scraper service.</p>
+            </div>
+
+            <form id="DLsiteScraperConfigurationForm">
+
+                <div class="verticalSection">
+                    <h2>General Settings</h2>
+
+                    <div class="inputContainer">
+                        <input id="txtBackendUrl" is="emby-input" name="txtBackendUrl" pattern="^https?://.+$" required
+                               type="text" label="Backend URL:"/>
+                        <div class="fieldDescription">URL of the scraper backend service (e.g. http://127.0.0.1:8585)</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <input id="txtApiToken" is="emby-input" name="txtApiToken" type="text" label="API Token:"/>
+                        <div class="fieldDescription">Optional API token for authentication with the backend service</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkEnableLogging" is="emby-checkbox" name="chkEnableLogging" type="checkbox"/>
+                            <span>Enable Logging</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Enable detailed logging for troubleshooting</div>
+                    </div>
+                </div>
+
+                <div class="verticalSection">
+                    <h2>Tag/Genre Mapping</h2>
+
+                    <div class="selectContainer">
+                        <select id="selTagMappingMode" is="emby-select" name="selTagMappingMode" label="Tag Mapping Mode:">
+                            <option value="0">Tags (Default)</option>
+                            <option value="1">Genres</option>
+                        </select>
+                        <div class="fieldDescription">Choose how content tags should be mapped in Jellyfin. Tags includes both content tags and series information. Series data is always included regardless of this setting.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <button class="raised button-submit block" is="emby-button" type="submit">
+                        <span>Save</span></button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+    <script type="text/javascript">
+        var DLsiteScraperPluginConfig = {
+            pluginUniqueId: "d2e313b1-0c08-4a4b-9696-768a06561c3f"
+        };
+
+        document.getElementById('DLsiteScraperConfigurationPage')
+            .addEventListener('pageshow', function () {
+                console.log('DLsite Scraper: pageshow event fired');
+                Dashboard.showLoadingMsg();
+                var page = this;
+                
+                // Add a timeout to prevent indefinite loading
+                var loadTimeout = setTimeout(function() {
+                    console.error('DLsite Scraper: Configuration load timeout');
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Configuration load timeout. Please check your plugin installation and restart Jellyfin if necessary.');
+                }, 10000); // 10 second timeout
+                
+                ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
+                    try {
+                        clearTimeout(loadTimeout);
+                        console.log('DLsite Scraper: Configuration loaded successfully', config);
+                        
+                        var backendUrlInput = page.querySelector('#txtBackendUrl');
+                        var apiTokenInput = page.querySelector('#txtApiToken');
+                        var enableLoggingCheckbox = page.querySelector('#chkEnableLogging');
+                        var tagMappingModeSelect = page.querySelector('#selTagMappingMode');
+                        
+                        if (backendUrlInput) {
+                            backendUrlInput.value = config.BackendUrl || 'http://127.0.0.1:8585';
+                            backendUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log('DLsite Scraper: Backend URL set to:', backendUrlInput.value);
+                        }
+                        
+                        if (apiTokenInput) {
+                            apiTokenInput.value = config.ApiToken || '';
+                            apiTokenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log('DLsite Scraper: API Token set');
+                        }
+                        
+                        if (enableLoggingCheckbox) {
+                            enableLoggingCheckbox.checked = config.EnableLogging || false;
+                            console.log('DLsite Scraper: Enable Logging set to:', enableLoggingCheckbox.checked);
+                        }
+                        
+                        if (tagMappingModeSelect) {
+                            tagMappingModeSelect.value = config.TagMappingMode || 0;
+                            tagMappingModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                            console.log('DLsite Scraper: Tag Mapping Mode set to:', tagMappingModeSelect.value);
+                        }
+                        
+                        Dashboard.hideLoadingMsg();
+                    } catch (error) {
+                        clearTimeout(loadTimeout);
+                        console.error('DLsite Scraper: Error processing configuration:', error);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Error processing configuration: ' + error.message + '. Please check the browser console for more details.');
+                    }
+                }).catch(function (error) {
+                    clearTimeout(loadTimeout);
+                    console.error('DLsite Scraper: Failed to load plugin configuration:', error);
+                    Dashboard.hideLoadingMsg();
+                    
+                    // Provide more specific error messages
+                    var errorMessage = 'Failed to load plugin configuration.';
+                    if (error && error.status) {
+                        switch (error.status) {
+                            case 404:
+                                errorMessage = 'Plugin configuration not found. Please ensure the plugin is properly installed and restart Jellyfin.';
+                                break;
+                            case 500:
+                                errorMessage = 'Internal server error while loading configuration. Please check Jellyfin logs.';
+                                break;
+                            case 403:
+                                errorMessage = 'Access denied. Please check your user permissions.';
+                                break;
+                            default:
+                                errorMessage = 'Failed to load configuration (Status: ' + error.status + '). Please try refreshing the page.';
+                        }
+                    }
+                    
+                    Dashboard.alert(errorMessage);
+                });
+            });
+
+        document.getElementById('DLsiteScraperConfigurationForm')
+            .addEventListener('submit', function (e) {
+                e.preventDefault();
+                console.log('DLsite Scraper: Form submit initiated');
+                Dashboard.showLoadingMsg();
+                var form = this;
+                
+                // Add a timeout to prevent indefinite loading
+                var saveTimeout = setTimeout(function() {
+                    console.error('DLsite Scraper: Configuration save timeout');
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Configuration save timeout. Please check your connection and try again.');
+                }, 10000); // 10 second timeout
+                
+                ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
+                    try {
+                        var backendUrlInput = form.querySelector('#txtBackendUrl');
+                        var apiTokenInput = form.querySelector('#txtApiToken');
+                        var enableLoggingCheckbox = form.querySelector('#chkEnableLogging');
+                        var tagMappingModeSelect = form.querySelector('#selTagMappingMode');
+                        
+                        var newBackendUrl = backendUrlInput ? backendUrlInput.value.trim() : 'http://127.0.0.1:8585';
+                        var newApiToken = apiTokenInput ? apiTokenInput.value.trim() : '';
+                        var newEnableLogging = enableLoggingCheckbox ? enableLoggingCheckbox.checked : false;
+                        var newTagMappingMode = tagMappingModeSelect ? parseInt(tagMappingModeSelect.value) || 0 : 0;
+                        
+                        console.log('DLsite Scraper: Saving configuration:', {
+                            BackendUrl: newBackendUrl,
+                            ApiToken: newApiToken ? '[REDACTED]' : '',
+                            EnableLogging: newEnableLogging,
+                            TagMappingMode: newTagMappingMode
+                        });
+                        
+                        config.BackendUrl = newBackendUrl;
+                        config.ApiToken = newApiToken;
+                        config.EnableLogging = newEnableLogging;
+                        config.TagMappingMode = newTagMappingMode;
+                        
+                        ApiClient.updatePluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId, config)
+                            .then(function() {
+                                clearTimeout(saveTimeout);
+                                console.log('DLsite Scraper: Configuration saved successfully');
+                                Dashboard.processPluginConfigurationUpdateResult();
+                            })
+                            .catch(function(error) {
+                                clearTimeout(saveTimeout);
+                                console.error('DLsite Scraper: Failed to save configuration:', error);
+                                Dashboard.hideLoadingMsg();
+                                
+                                var errorMessage = 'Failed to save configuration.';
+                                if (error && error.status) {
+                                    switch (error.status) {
+                                        case 400:
+                                            errorMessage = 'Invalid configuration data. Please check your input values.';
+                                            break;
+                                        case 500:
+                                            errorMessage = 'Internal server error while saving configuration. Please check Jellyfin logs.';
+                                            break;
+                                        case 403:
+                                            errorMessage = 'Access denied. Please check your user permissions.';
+                                            break;
+                                        default:
+                                            errorMessage = 'Failed to save configuration (Status: ' + error.status + ').';
+                                    }
+                                }
+                                
+                                Dashboard.alert(errorMessage + ' Check the browser console for more details.');
+                            });
+                    } catch (error) {
+                        clearTimeout(saveTimeout);
+                        console.error('DLsite Scraper: Error preparing configuration data:', error);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Error preparing configuration data: ' + error.message);
+                    }
+                }).catch(function (error) {
+                    clearTimeout(saveTimeout);
+                    console.error('DLsite Scraper: Failed to load current configuration for saving:', error);
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Failed to load current configuration for saving. Please try again.');
+                });
+                
+                return false;
+            });
+    </script>
+</div>
+</body>
+</html>

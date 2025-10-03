@@ -61,7 +61,7 @@ public static class PeopleEx
     /// // Add writer
     /// AddPerson(metadata, "鈴木次郎", "Writer", "シナリオ");
     /// </example>
-    public static void AddPerson(HanimeMetadata meta, string name, string type, string? originalRole)
+    public static void AddPerson(Metadata meta, string name, string type, string? originalRole)
         => ScrapingUtils.AddPerson(meta, name, type, originalRole);
 
     /// <summary>
@@ -90,7 +90,7 @@ public static class PeopleEx
     ///     Console.WriteLine($"{person.Name} - {person.Type} ({person.Role})");
     /// }
     /// </example>
-    public static void ExtractDLsitePersonnel(HtmlDocument doc, HanimeMetadata meta)
+    public static void ExtractDLsitePersonnel(HtmlDocument doc, Metadata meta)
     {
         // Iterate through all rows in the work_outline table
         var rows = doc.DocumentNode.SelectNodes("//table[@id='work_outline']//tr");
@@ -150,7 +150,7 @@ public static class PeopleEx
     /// AddPersonWithOriginalRole(metadata, "Unknown Person", "UnknownRole");
     /// // Will be skipped since "UnknownRole" doesn't map to a standard type
     /// </example>
-    public static void AddPersonWithOriginalRole(HanimeMetadata meta, string name, string originalRoleJapanese)
+    public static void AddPersonWithOriginalRole(Metadata meta, string name, string originalRoleJapanese)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(originalRoleJapanese))
             return;

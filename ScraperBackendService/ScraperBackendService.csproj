@@ -23,4 +23,7 @@
       <TargetPath>AntiCloudflare\StealthInit.js</TargetPath>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Core\Registry\" />
+  </ItemGroup>
 </Project>

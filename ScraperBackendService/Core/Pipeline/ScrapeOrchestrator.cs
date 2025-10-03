@@ -25,7 +25,7 @@ public sealed class ScrapeOrchestrator
         _log = log;
     }
 
-    public async Task<List<HanimeMetadata>> FetchAsync(
+    public async Task<List<Metadata>> FetchAsync(
         string input,
         ScrapeRoute route,
         int maxResults,
@@ -49,14 +49,14 @@ public sealed class ScrapeOrchestrator
         }
     }
 
-    private async Task<List<HanimeMetadata>> FetchByIdAsync(string id, CancellationToken ct)
+    private async Task<List<Metadata>> FetchByIdAsync(string id, CancellationToken ct)
     {
         var url = _provider.BuildDetailUrlById(id);
         var meta = await _provider.FetchDetailAsync(url, ct);
         return (meta is null) ? new() : new() { meta };
     }
 
-    private async Task<List<HanimeMetadata>> SearchAndFetchAsync(
+    private async Task<List<Metadata>> SearchAndFetchAsync(
         string filenameOrText, int maxResults, CancellationToken ct)
     {
         var kw = TextNormalizer.BuildQueryFromFilename(filenameOrText);

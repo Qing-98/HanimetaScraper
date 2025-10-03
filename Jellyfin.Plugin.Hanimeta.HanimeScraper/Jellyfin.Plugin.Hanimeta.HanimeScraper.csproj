@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <CodeAnalysisRuleSet>jellyfin.ruleset</CodeAnalysisRuleSet>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AssemblyName>Jellyfin.Plugin.Hanimeta.HanimeScraper</AssemblyName>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyTitle>Hanime Scraper Plugin for Jellyfin</AssemblyTitle>
+    <AssemblyDescription>Hanime metadata provider with backend scraper service</AssemblyDescription>
+    <AssemblyCompany>Qing-98</AssemblyCompany>
+    <AssemblyProduct>Jellyfin Plugin</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2024</AssemblyCopyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.*" />
+    <PackageReference Include="Jellyfin.Model" Version="10.*" />
+    <PackageReference Include="Jellyfin.Data" Version="10.*" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.507">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.Hanimeta.Common\Jellyfin.Plugin.Hanimeta.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="jellyfin.ruleset" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\**\*.html" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server\plugins')">
+    <MakeDir Directories="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" Condition="Exists('$(TargetDir)$(TargetName).pdb')" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(TargetDir)manifest.json" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" Condition="Exists('$(TargetDir)manifest.json')" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll')" />
+    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.HanimeScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb')" />
+  </Target>
+</Project>

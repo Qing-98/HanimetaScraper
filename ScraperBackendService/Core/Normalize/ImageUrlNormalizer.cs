@@ -14,7 +14,7 @@ public static class ImageUrlNormalizer
     /// <summary>
     /// Add thumbnail to metadata, automatically convert WebP to JPG
     /// </summary>
-    public static void AddThumb(HanimeMetadata meta, string? url)
+    public static void AddThumb(Metadata meta, string? url)
         => ScrapingUtils.AddThumb(meta, url);
 
     /// <summary>

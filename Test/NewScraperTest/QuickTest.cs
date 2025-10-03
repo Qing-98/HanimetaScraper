@@ -115,7 +115,7 @@ public static class QuickTest
     ///   Description: Brief description...
     ///   Tags: tag1, tag2, tag3
     /// </example>
-    private static void DisplayResults(System.Collections.Generic.List<ScraperBackendService.Models.HanimeMetadata> results, string providerName)
+    private static void DisplayResults(System.Collections.Generic.List<ScraperBackendService.Models.Metadata> results, string providerName)
     {
         Console.WriteLine($"Found {results.Count} results from {providerName}");
 

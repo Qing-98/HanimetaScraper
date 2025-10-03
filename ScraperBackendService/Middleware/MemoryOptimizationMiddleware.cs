@@ -1,0 +1,110 @@
+using System.Diagnostics;
+using ScraperBackendService.Core.Logging;
+
+namespace ScraperBackendService.Middleware;
+
+/// <summary>
+/// Memory monitoring and optimization middleware to prevent memory bloat.
+/// Tracks memory usage and triggers garbage collection when needed.
+/// </summary>
+public class MemoryOptimizationMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<MemoryOptimizationMiddleware> _logger;
+    private static long _requestCount = 0;
+    private static DateTime _lastGcTime = DateTime.UtcNow;
+    
+    // Memory thresholds - Lower thresholds for more aggressive memory management
+    private const long HIGH_MEMORY_THRESHOLD = 800_000_000; // 800MB
+    private const long CRITICAL_MEMORY_THRESHOLD = 1_024_000_000; // 1GB
+    private const int GC_INTERVAL_REQUESTS = 100; // Force GC every 20 requests (reduced from 100)
+    private const int GC_INTERVAL_MINUTES = 5; // Force GC every 2 minutes (reduced from 5)
+
+    public MemoryOptimizationMiddleware(RequestDelegate next, ILogger<MemoryOptimizationMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var requestStart = Interlocked.Increment(ref _requestCount);
+        var memoryBefore = GC.GetTotalMemory(false);
+
+        try
+        {
+            await _next(context);
+            
+            // Check memory usage after request
+            var memoryAfter = GC.GetTotalMemory(false);
+            var memoryDelta = memoryAfter - memoryBefore;
+            
+            // Log significant memory increases (only for high increases to avoid log spam)
+            if (memoryDelta > 200_000_000) // 200MB increase per request
+            {
+                _logger.LogDebug("MemorySpike: High memory delta: {MemoryDelta}MB, Path: {Path}", memoryDelta / 1024 / 1024, context.Request.Path);
+            }
+            
+            // Trigger GC if needed
+            await CheckAndTriggerGarbageCollection(memoryAfter, requestStart);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MemoryMiddleware] Request failed: Path={Path}", context.Request.Path);
+            throw;
+        }
+    }
+
+    private async Task CheckAndTriggerGarbageCollection(long currentMemory, long requestCount)
+    {
+        var shouldTriggerGc = false;
+        var reason = "";
+
+        // Check various GC trigger conditions
+        if (currentMemory > CRITICAL_MEMORY_THRESHOLD)
+        {
+            shouldTriggerGc = true;
+            reason = "Critical memory threshold";
+        }
+        else if (currentMemory > HIGH_MEMORY_THRESHOLD && requestCount % 50 == 0)
+        {
+            shouldTriggerGc = true;
+            reason = "High memory + request interval";
+        }
+        else if (requestCount % GC_INTERVAL_REQUESTS == 0)
+        {
+            shouldTriggerGc = true;
+            reason = "Request interval";
+        }
+        else if (DateTime.UtcNow - _lastGcTime > TimeSpan.FromMinutes(GC_INTERVAL_MINUTES))
+        {
+            shouldTriggerGc = true;
+            reason = "Time interval";
+        }
+
+        if (shouldTriggerGc)
+        {
+            await Task.Run(() =>
+            {
+                var beforeGc = GC.GetTotalMemory(false);
+                
+                // Perform garbage collection
+                GC.Collect(2, GCCollectionMode.Forced, true, true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(2, GCCollectionMode.Forced, true, true);
+                
+                var afterGc = GC.GetTotalMemory(true);
+                var freedMemory = beforeGc - afterGc;
+                
+                _lastGcTime = DateTime.UtcNow;
+                
+                // Only log if significant memory was freed
+                if (freedMemory > 200_000_000) // 200MB
+                {
+                    _logger.LogDebug("MemoryGC: Freed {FreedMemory}MB | Reason: {Reason} | Req#{RequestCount}", 
+                        freedMemory / 1024 / 1024, reason, requestCount);
+                }
+            });
+        }
+    }
+}

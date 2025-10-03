@@ -1,14 +1,21 @@
-using System.Globalization;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using ScraperBackendService.Core.Abstractions;
+using ScraperBackendService.Core.Net;
+using ScraperBackendService.Core.Logging;
 using ScraperBackendService.Core.Normalize;
 using ScraperBackendService.Core.Parsing;
 using ScraperBackendService.Core.Routing;
 using ScraperBackendService.Core.Util;
 using ScraperBackendService.Models;
-using System.Linq;
+using System.Globalization;
 using NetUrlHelper = ScraperBackendService.Core.Net.UrlHelper;
 
 namespace ScraperBackendService.Providers.DLsite;
@@ -103,9 +110,10 @@ public sealed class DlsiteProvider : IMediaProvider
     {
         var normalized = TextNormalizer.NormalizeKeyword(keyword);
         var searchUrl = string.Format(CultureInfo.InvariantCulture, UnifiedSearchUrl, Uri.EscapeDataString(normalized));
-        _log.LogInformation("[DLsite] Search: {Url}", searchUrl);
 
         var html = await _net.GetHtmlAsync(searchUrl, ct);
+        
+        // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -170,7 +178,7 @@ public sealed class DlsiteProvider : IMediaProvider
     ///     Console.WriteLine($"Genres: {string.Join(", ", metadata.Genres)}");
     /// }
     /// </example>
-    public async Task<HanimeMetadata?> FetchDetailAsync(string detailUrl, CancellationToken ct)
+    public async Task<Metadata?> FetchDetailAsync(string detailUrl, CancellationToken ct)
     {
         var id = IdParsers.ParseIdFromDlsiteUrl(detailUrl);
         string[] candidates = string.IsNullOrEmpty(id)
@@ -187,7 +195,15 @@ public sealed class DlsiteProvider : IMediaProvider
             try
             {
                 var meta = await ParseDetailPageAsync(url, ct);
-                if (meta != null) return meta;
+                if (meta != null) 
+                {
+                    // Ensure the original detailUrl is included in SourceUrls
+                    if (!meta.SourceUrls.Contains(detailUrl))
+                    {
+                        meta.SourceUrls.Add(detailUrl);
+                    }
+                    return meta;
+                }
             }
             catch (Exception ex)
             {
@@ -212,7 +228,7 @@ public sealed class DlsiteProvider : IMediaProvider
     /// Console.WriteLine($"Found {metadata?.Genres.Count} genres");
     /// Console.WriteLine($"Found {metadata?.People.Count} personnel entries");
     /// </example>
-    private async Task<HanimeMetadata?> ParseDetailPageAsync(string detailUrl, CancellationToken ct)
+    private async Task<Metadata?> ParseDetailPageAsync(string detailUrl, CancellationToken ct)
     {
         var id = IdParsers.ParseIdFromDlsiteUrl(detailUrl);
         if (string.IsNullOrEmpty(id)) return null;
@@ -220,6 +236,7 @@ public sealed class DlsiteProvider : IMediaProvider
         var html = await _net.GetHtmlAsync(detailUrl, ct);
         if (string.IsNullOrWhiteSpace(html)) return null;
 
+        // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
@@ -236,11 +253,14 @@ public sealed class DlsiteProvider : IMediaProvider
             return null;
         }
 
-        var meta = new HanimeMetadata
+        var meta = new Metadata
         {
             ID = id,
-            SourceUrls = new List<string> { detailUrl }
+            SourceUrls = new List<string>()
         };
+        
+        // Ensure SourceUrls is properly initialized and add current URL
+        meta.SourceUrls.Add(detailUrl);
 
         // Extract title from main product name element
         meta.Title = TextNormalizer.Clean(HtmlEx.SelectText(doc, "//h1[@id='work_name']"));
@@ -271,8 +291,8 @@ public sealed class DlsiteProvider : IMediaProvider
                  ?? Enumerable.Empty<HtmlNode>())
         {
             var g = TextNormalizer.Clean(a.InnerText);
-            if (!string.IsNullOrEmpty(g) && !meta.Genres.Contains(g))
-                meta.Genres.Add(g);
+            if (!string.IsNullOrEmpty(g) && !meta.Tags.Contains(g))
+                meta.Tags.Add(g);
         }
 
         // Extract release date (Japanese format: yyyy年M月d日)
@@ -327,7 +347,7 @@ public sealed class DlsiteProvider : IMediaProvider
             var site = detailUrl.Contains("/pro/", StringComparison.OrdinalIgnoreCase) ? "pro" : "maniax";
             var ajaxUrl = $"https://www.dlsite.com/{site}/product/info/ajax?product_id={Uri.EscapeDataString(id)}";
 
-            var json = await _net.GetJsonAsync(ajaxUrl,
+            using var json = await _net.GetJsonAsync(ajaxUrl,
                 new Dictionary<string, string>
                 {
                     { "X-Requested-With", "XMLHttpRequest" },
@@ -345,6 +365,17 @@ public sealed class DlsiteProvider : IMediaProvider
         catch (Exception ex)
         {
             _log.LogDebug(ex, "[DLsite] Rating fetch failed for product: {Id}", id);
+        }
+
+        // Clean titles before returning to frontend
+        if (!string.IsNullOrWhiteSpace(meta.Title))
+        {
+            meta.Title = TitleCleaner.CleanTitle(meta.Title);
+        }
+
+        if (!string.IsNullOrWhiteSpace(meta.OriginalTitle))
+        {
+            meta.OriginalTitle = TitleCleaner.CleanTitle(meta.OriginalTitle);
         }
 
         return meta;
