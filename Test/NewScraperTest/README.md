@@ -1,8 +1,8 @@
 # NewScraperTest
 
-[中文](README.zh.md) | [English](README.md)
+[English](README.md) | [中文](README.zh.md)
 
-A comprehensive test suite for the HanimetaScraper backend service and content providers. This interactive test application validates the functionality of DLsite and Hanime providers in real scenarios.
+A comprehensive test suite for the HanimetaScraper backend service and content providers. This interactive test application validates the functionality of DLsite and Hanime scraping providers through real-world scenarios.
 
 ## 🚀 Features
 
@@ -122,7 +122,7 @@ Tested API Endpoints:
 ```
 
 ### 5. Concurrent Load Test (Option 5)
-Performance and stability under concurrent load:
+Performance and stability testing under concurrent load:
 
 ```
 Load Test Scenarios:
