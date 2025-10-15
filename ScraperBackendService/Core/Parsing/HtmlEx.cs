@@ -1,56 +1,1 @@
-using HtmlAgilityPack;
-using ScraperBackendService.Core.Util;
-using System.Net;
-using System.Text;
-using System.Linq;
-
-namespace ScraperBackendService.Core.Parsing;
-
-/// <summary>
-/// HtmlAgilityPack extension utilities
-/// </summary>
-public static class HtmlEx
-{
-    public static HtmlNode? SelectSingle(HtmlDocument doc, string xpath)
-        => ScrapingUtils.SelectSingle(doc, xpath);
-
-    public static IEnumerable<HtmlNode> SelectNodes(HtmlDocument doc, string xpath)
-        => ScrapingUtils.SelectNodes(doc, xpath) ?? Enumerable.Empty<HtmlNode>();
-
-    public static string SelectText(HtmlDocument doc, string xpath)
-        => ScrapingUtils.SelectText(doc, xpath);
-
-    public static string GetAttr(HtmlNode? node, string attributeName)
-        => ScrapingUtils.GetAttr(node, attributeName);
-
-    /// <summary>
-    /// Extract text from table cell, prefer link text
-    /// </summary>
-    public static string ExtractOutlineCell(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)
-    {
-        var result = ScrapingUtils.ExtractOutlineCell(doc, xpath);
-        return cleaner?.Invoke(result) ?? result;
-    }
-
-    /// <summary>
-    /// Extract text from table cell, prefer any link text
-    /// </summary>
-    public static string ExtractOutlineCellPreferA(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)
-    {
-        var result = ScrapingUtils.ExtractOutlineCellPreferA(doc, xpath);
-        return cleaner?.Invoke(result) ?? result;
-    }
-
-    public static string TextWithBr(HtmlNode n)
-    {
-        var sb = new StringBuilder();
-        void Walk(HtmlNode x)
-        {
-            if (x.NodeType == HtmlNodeType.Text) sb.Append(x.InnerText);
-            else if (string.Equals(x.Name, "br", StringComparison.OrdinalIgnoreCase)) sb.Append('\n');
-            foreach (var c in x.ChildNodes) Walk(c);
-        }
-        Walk(n);
-        return WebUtility.HtmlDecode(sb.ToString());
-    }
-}
+using HtmlAgilityPack;using ScraperBackendService.Core.Util;using System.Net;using System.Text;using System.Linq;namespace ScraperBackendService.Core.Parsing;/// <summary>/// HtmlAgilityPack extension utilities for enhanced HTML parsing operations./// Provides convenient methods for XPath selection, text extraction, and attribute handling./// </summary>public static class HtmlEx{    /// <summary>    /// Select a single HTML node using XPath expression.    /// Returns null if no matching node is found.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression</param>    /// <returns>First matching HTML node or null</returns>    /// <example>    /// var titleNode = HtmlEx.SelectSingle(document, "//h1[@class='title']");    /// if (titleNode != null) {    ///     var title = titleNode.InnerText;    /// }    /// </example>    public static HtmlNode? SelectSingle(HtmlDocument doc, string xpath)        => ScrapingUtils.SelectSingle(doc, xpath);    /// <summary>    /// Select multiple HTML nodes using XPath expression.    /// Returns empty enumerable if no matches are found.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression</param>    /// <returns>Enumerable of matching HTML nodes</returns>    /// <example>    /// var linkNodes = HtmlEx.SelectNodes(document, "//a[@href]");    /// foreach (var link in linkNodes) {    ///     var url = link.GetAttributeValue("href", "");    /// }    /// </example>    public static IEnumerable<HtmlNode> SelectNodes(HtmlDocument doc, string xpath)        => ScrapingUtils.SelectNodes(doc, xpath) ?? Enumerable.Empty<HtmlNode>();    /// <summary>    /// Select and extract text content from the first matching node.    /// Returns empty string if no node is found.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression</param>    /// <returns>Text content of the first matching node</returns>    /// <example>    /// var description = HtmlEx.SelectText(document, "//div[@class='description']");    /// // Returns cleaned text content from the description div    /// </example>    public static string SelectText(HtmlDocument doc, string xpath)        => ScrapingUtils.SelectText(doc, xpath);    /// <summary>    /// Get attribute value from HTML node with fallback to empty string.    /// Safely handles null nodes and missing attributes.    /// </summary>    /// <param name="node">HTML node to extract attribute from</param>    /// <param name="attributeName">Name of the attribute</param>    /// <returns>Attribute value or empty string if not found</returns>    /// <example>    /// var imageUrl = HtmlEx.GetAttr(imgNode, "src");    /// var altText = HtmlEx.GetAttr(imgNode, "alt");    /// </example>    public static string GetAttr(HtmlNode? node, string attributeName)        => ScrapingUtils.GetAttr(node, attributeName);    /// <summary>    /// Extract text from table cell, preferring link text over plain text.    /// Useful for extracting clickable content from structured tables.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression targeting table cell</param>    /// <param name="cleaner">Optional text cleaning function</param>    /// <returns>Extracted and optionally cleaned text</returns>    /// <example>    /// var studioName = HtmlEx.ExtractOutlineCell(document,     ///     "//table[@id='details']//tr[th[text()='Studio']]//td",    ///     text => text.Trim());    /// </example>    public static string ExtractOutlineCell(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)    {        var result = ScrapingUtils.ExtractOutlineCell(doc, xpath);        return cleaner?.Invoke(result) ?? result;    }    /// <summary>    /// Extract text from table cell, preferring any link text found within.    /// More aggressive than ExtractOutlineCell in finding linked content.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression targeting table cell</param>    /// <param name="cleaner">Optional text cleaning function</param>    /// <returns>Extracted and optionally cleaned text</returns>    /// <example>    /// var releaseDate = HtmlEx.ExtractOutlineCellPreferA(document,    ///     "//table//tr[th[contains(text(),'Release')]]//td",    ///     text => text.Replace("Released:", "").Trim());    /// </example>    public static string ExtractOutlineCellPreferA(HtmlDocument doc, string xpath, Func<string, string>? cleaner = null)    {        var result = ScrapingUtils.ExtractOutlineCellPreferA(doc, xpath);        return cleaner?.Invoke(result) ?? result;    }    /// <summary>    /// Extract text content from HTML node while preserving line breaks from BR tags.    /// Converts BR elements to newline characters for proper text formatting.    /// </summary>    /// <param name="n">HTML node to extract text from</param>    /// <returns>Text content with preserved line breaks</returns>    /// <example>    /// var formattedText = HtmlEx.TextWithBr(descriptionNode);    /// // Returns: "Line 1\nLine 2\nLine 3" instead of "Line 1Line 2Line 3"    /// </example>    public static string TextWithBr(HtmlNode n)    {        var sb = new StringBuilder();        void Walk(HtmlNode x)        {            if (x.NodeType == HtmlNodeType.Text)                 sb.Append(x.InnerText);            else if (string.Equals(x.Name, "br", StringComparison.OrdinalIgnoreCase))                 sb.Append('\n');            foreach (var c in x.ChildNodes) Walk(c);        }        Walk(n);        return WebUtility.HtmlDecode(sb.ToString());    }}

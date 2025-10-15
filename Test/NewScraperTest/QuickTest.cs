@@ -2,7 +2,6 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ScraperBackendService.Core.Net;
-using ScraperBackendService.Core.Pipeline;
 using ScraperBackendService.Core.Routing;
 using ScraperBackendService.Providers.DLsite;
 using ScraperBackendService.Providers.Hanime;

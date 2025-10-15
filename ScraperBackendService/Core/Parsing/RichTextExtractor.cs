@@ -1,155 +1,1 @@
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Net;
-using System.Linq;
-using HtmlAgilityPack;
-
-namespace ScraperBackendService.Core.Parsing;
-
-public static class RichTextExtractor
-{
-    public static string ExtractFrom(HtmlNode? root, RichTextOptions? options = null)
-    {
-        if (root == null) return "";
-        var opt = options ?? RichTextOptions.Default;
-
-        var paras = new List<string>();
-
-        // 1.1 Multi-type items (common in DLsite)
-        foreach (var item in root.SelectNodes(".//div[contains(@class,'work_parts_multitype_item') and contains(@class,'type_text')]")
-                                  ?? Enumerable.Empty<HtmlNode>())
-        {
-            var ps = item.SelectNodes(".//p");
-            if (ps is { Count: > 0 })
-            {
-                foreach (var p in ps) AddPara(paras, NodeText(p, opt));
-            }
-            else
-            {
-                AddPara(paras, NodeText(item, opt));
-            }
-        }
-
-        // 1.2 Paragraph p
-        foreach (var p in root.SelectNodes(".//p") ?? Enumerable.Empty<HtmlNode>())
-            AddPara(paras, NodeText(p, opt));
-
-        // 1.3 Lists ul/ol -> li
-        if (opt.RenderLists)
-        {
-            foreach (var li in root.SelectNodes(".//ul/li | .//ol/li")
-                                 ?? Enumerable.Empty<HtmlNode>())
-            {
-                var t = NodeText(li, opt);
-                if (!string.IsNullOrWhiteSpace(t))
-                    paras.Add(opt.Bullet + t);
-            }
-        }
-
-        // 1.4 Fallback
-        if (paras.Count == 0)
-        {
-            var t = NodeText(root, opt);
-            if (!string.IsNullOrWhiteSpace(t)) paras.Add(t);
-        }
-
-        // 2) Filtering
-        if (opt.ExcludeContains.Count > 0 || opt.ExcludeRegex.Count > 0)
-        {
-            paras = paras.Where(p =>
-            {
-                if (string.IsNullOrWhiteSpace(p)) return false;
-                foreach (var kw in opt.ExcludeContains)
-                    if (p.Contains(kw, StringComparison.OrdinalIgnoreCase)) return false;
-                foreach (var re in opt.ExcludeRegex)
-                    if (re.IsMatch(p)) return false;
-                return true;
-            }).ToList();
-        }
-
-        // 3) Paragraph limit
-        if (opt.MaxParagraphs is int maxP && maxP > 0 && paras.Count > maxP)
-            paras = paras.Take(maxP).ToList();
-
-        // 4) Concatenation
-        var text = string.Join("\n\n", paras.Where(s => !string.IsNullOrWhiteSpace(s)));
-
-        // 5) Whitespace normalization
-        text = NormalizeWhitespace(text, opt);
-
-        // 6) Character limit
-        if (opt.MaxChars is int maxC && maxC > 0 && text.Length > maxC)
-            text = text[..Math.Max(0, maxC - 1)] + "…";
-
-        // 7) Custom post-processing
-        if (opt.PostProcess is not null)
-            text = opt.PostProcess(text);
-
-        return text;
-    }
-
-    public static string ExtractFrom(HtmlDocument doc, string xpath, RichTextOptions? options = null)
-        => ExtractFrom(doc.DocumentNode.SelectSingleNode(xpath), options);
-
-    // === Internal Tools ===
-    private static string NodeText(HtmlNode n, RichTextOptions opt)
-    {
-        var sb = new StringBuilder();
-        void Walk(HtmlNode x)
-        {
-            if (x.Name.Equals("script", StringComparison.OrdinalIgnoreCase) ||
-                x.Name.Equals("style", StringComparison.OrdinalIgnoreCase)) return;
-
-            if (x.NodeType == HtmlNodeType.Text)
-            {
-                sb.Append(x.InnerText);
-                return;
-            }
-
-            if (opt.KeepNewLines && string.Equals(x.Name, "br", StringComparison.OrdinalIgnoreCase))
-            {
-                sb.Append('\n');
-                return;
-            }
-
-            foreach (var c in x.ChildNodes) Walk(c);
-        }
-
-        Walk(n);
-        var raw = WebUtility.HtmlDecode(sb.ToString());
-        return NormalizeInline(raw, opt);
-    }
-
-    private static string NormalizeInline(string s, RichTextOptions opt)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return "";
-        s = s.Replace('\u00A0', ' ');
-        s = Regex.Replace(s, "[ \t\r\f\v]+", " ");
-
-        if (opt.KeepNewLines)
-        {
-            var lines = s.Split('\n');
-            for (int i = 0; i < lines.Length; i++)
-                lines[i] = lines[i].Trim();
-            s = string.Join("\n", lines.Where(l => l.Length > 0 || opt.PreserveEmptyLines));
-        }
-        else
-        {
-            s = s.Replace('\n', ' ').Trim();
-        }
-        return s.Trim();
-    }
-
-    private static string NormalizeWhitespace(string s, RichTextOptions opt)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return "";
-        if (opt.KeepNewLines) s = Regex.Replace(s, "\n{3,}", "\n\n");
-        return s.Trim();
-    }
-
-    private static void AddPara(List<string> list, string? raw)
-    {
-        raw = (raw ?? "").Trim();
-        if (!string.IsNullOrEmpty(raw)) list.Add(raw);
-    }
-}
+using System.Text;using System.Text.RegularExpressions;using System.Net;using System.Linq;using HtmlAgilityPack;namespace ScraperBackendService.Core.Parsing;/// <summary>/// Rich text extraction utilities for parsing structured HTML content into readable text./// Handles various HTML structures including paragraphs, lists, and custom content sections./// Provides configurable text processing with limits, filtering, and normalization options./// </summary>public static class RichTextExtractor{    /// <summary>    /// Extracts structured text content from HTML nodes with comprehensive processing options.    /// Handles multiple content types and applies configurable filtering and normalization.    /// </summary>    /// <param name="root">Root HTML node to extract content from</param>    /// <param name="options">Extraction options for customizing output format</param>    /// <returns>Extracted and processed text content</returns>    /// <example>    /// var options = new RichTextOptions { MaxChars = 500, MaxParagraphs = 3 };    /// var text = RichTextExtractor.ExtractFrom(htmlNode, options);    /// // Returns: cleaned text with paragraph breaks, limited to 500 chars and 3 paragraphs    /// </example>    public static string ExtractFrom(HtmlNode? root, RichTextOptions? options = null)    {        if (root == null) return "";        var opt = options ?? RichTextOptions.Default;        var paras = new List<string>();        // 1.1 Multi-type items (common in DLsite)        foreach (var item in root.SelectNodes(".//div[contains(@class,'work_parts_multitype_item') and contains(@class,'type_text')]")                                  ?? Enumerable.Empty<HtmlNode>())        {            var ps = item.SelectNodes(".//p");            if (ps is { Count: > 0 })            {                foreach (var p in ps) AddPara(paras, NodeText(p, opt));            }            else            {                AddPara(paras, NodeText(item, opt));            }        }        // 1.2 Paragraph p        foreach (var p in root.SelectNodes(".//p") ?? Enumerable.Empty<HtmlNode>())            AddPara(paras, NodeText(p, opt));        // 1.3 Lists ul/ol -> li        if (opt.RenderLists)        {            foreach (var li in root.SelectNodes(".//ul/li | .//ol/li")                                 ?? Enumerable.Empty<HtmlNode>())            {                var t = NodeText(li, opt);                if (!string.IsNullOrWhiteSpace(t))                    paras.Add(opt.Bullet + t);            }        }        // 1.4 Fallback        if (paras.Count == 0)        {            var t = NodeText(root, opt);            if (!string.IsNullOrWhiteSpace(t)) paras.Add(t);        }        // 2) Filtering        if (opt.ExcludeContains.Count > 0 || opt.ExcludeRegex.Count > 0)        {            paras = paras.Where(p =>            {                if (string.IsNullOrWhiteSpace(p)) return false;                foreach (var kw in opt.ExcludeContains)                    if (p.Contains(kw, StringComparison.OrdinalIgnoreCase)) return false;                foreach (var re in opt.ExcludeRegex)                    if (re.IsMatch(p)) return false;                return true;            }).ToList();        }        // 3) Paragraph limit        if (opt.MaxParagraphs is int maxP && maxP > 0 && paras.Count > maxP)            paras = paras.Take(maxP).ToList();        // 4) Concatenation        var text = string.Join("\n\n", paras.Where(s => !string.IsNullOrWhiteSpace(s)));        // 5) Whitespace normalization        text = NormalizeWhitespace(text, opt);        // 6) Character limit        if (opt.MaxChars is int maxC && maxC > 0 && text.Length > maxC)            text = text[..Math.Max(0, maxC - 1)] + "…";        // 7) Custom post-processing        if (opt.PostProcess is not null)            text = opt.PostProcess(text);        return text;    }    /// <summary>    /// Extracts text content from HTML document using XPath selector.    /// Convenience method that combines XPath selection with text extraction.    /// </summary>    /// <param name="doc">HTML document to search</param>    /// <param name="xpath">XPath expression to locate target node</param>    /// <param name="options">Extraction options</param>    /// <returns>Extracted text content from selected node</returns>    /// <example>    /// var text = RichTextExtractor.ExtractFrom(document, "//div[@class='description']", options);    /// // Finds description div and extracts its text content    /// </example>    public static string ExtractFrom(HtmlDocument doc, string xpath, RichTextOptions? options = null)        => ExtractFrom(doc.DocumentNode.SelectSingleNode(xpath), options);    // === Internal Tools ===    /// <summary>    /// Extracts text content from a single HTML node with proper handling of inline elements.    /// Processes child nodes recursively while respecting text extraction options.    /// </summary>    /// <param name="n">HTML node to process</param>    /// <param name="opt">Extraction options</param>    /// <returns>Cleaned text content from the node</returns>    private static string NodeText(HtmlNode n, RichTextOptions opt)    {        var sb = new StringBuilder();        void Walk(HtmlNode x)        {            if (x.Name.Equals("script", StringComparison.OrdinalIgnoreCase) ||                x.Name.Equals("style", StringComparison.OrdinalIgnoreCase)) return;            if (x.NodeType == HtmlNodeType.Text)            {                sb.Append(x.InnerText);                return;            }            if (opt.KeepNewLines && string.Equals(x.Name, "br", StringComparison.OrdinalIgnoreCase))            {                sb.Append('\n');                return;            }            foreach (var c in x.ChildNodes) Walk(c);        }        Walk(n);        var raw = WebUtility.HtmlDecode(sb.ToString());        return NormalizeInline(raw, opt);    }    /// <summary>    /// Normalizes inline text content by handling whitespace, line breaks, and character encoding.    /// Applies text cleaning rules based on extraction options.    /// </summary>    /// <param name="s">Raw text to normalize</param>    /// <param name="opt">Normalization options</param>    /// <returns>Normalized text string</returns>    private static string NormalizeInline(string s, RichTextOptions opt)    {        if (string.IsNullOrWhiteSpace(s)) return "";        s = s.Replace('\u00A0', ' ');        s = Regex.Replace(s, "[ \t\r\f\v]+", " ");        if (opt.KeepNewLines)        {            var lines = s.Split('\n');            for (int i = 0; i < lines.Length; i++)                lines[i] = lines[i].Trim();            s = string.Join("\n", lines.Where(l => l.Length > 0 || opt.PreserveEmptyLines));        }        else        {            s = s.Replace('\n', ' ').Trim();        }        return s.Trim();    }    /// <summary>    /// Normalizes whitespace in the final text output.    /// Reduces excessive line breaks and applies final formatting rules.    /// </summary>    /// <param name="s">Text to normalize</param>    /// <param name="opt">Normalization options</param>    /// <returns>Normalized text with proper whitespace</returns>    private static string NormalizeWhitespace(string s, RichTextOptions opt)    {        if (string.IsNullOrWhiteSpace(s)) return "";        if (opt.KeepNewLines) s = Regex.Replace(s, "\n{3,}", "\n\n");        return s.Trim();    }    /// <summary>    /// Adds a paragraph to the collection if it contains meaningful content.    /// Filters out empty or whitespace-only paragraphs.    /// </summary>    /// <param name="list">List to add paragraph to</param>    /// <param name="raw">Raw paragraph text to process</param>    private static void AddPara(List<string> list, string? raw)    {        raw = (raw ?? "").Trim();        if (!string.IsNullOrEmpty(raw)) list.Add(raw);    }}

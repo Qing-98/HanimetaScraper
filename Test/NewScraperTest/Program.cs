@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using ScraperBackendService.Core.Abstractions;
 using ScraperBackendService.Core.Net;
-using ScraperBackendService.Core.Pipeline;
 using ScraperBackendService.Core.Routing;
 using ScraperBackendService.Core.Util;
 using ScraperBackendService.Models;

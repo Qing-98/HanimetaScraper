@@ -1,25 +1,1 @@
-using ScraperBackendService.Core.Util;
-using ScraperBackendService.Models;
-
-namespace ScraperBackendService.Core.Normalize;
-
-public static class ImageUrlNormalizer
-{
-    /// <summary>
-    /// Select best JPG image URL from src/srcset
-    /// </summary>
-    public static string PickJpg(string? src, string? srcset, string baseUrl)
-        => ScrapingUtils.PickJpg(src, srcset, baseUrl);
-
-    /// <summary>
-    /// Add thumbnail to metadata, automatically convert WebP to JPG
-    /// </summary>
-    public static void AddThumb(Metadata meta, string? url)
-        => ScrapingUtils.AddThumb(meta, url);
-
-    /// <summary>
-    /// URL equality comparison
-    /// </summary>
-    public static bool UrlEq(string? a, string? b)
-        => ScrapingUtils.UrlEq(a, b);
-}
+using ScraperBackendService.Core.Util;using ScraperBackendService.Models;namespace ScraperBackendService.Core.Normalize;/// <summary>/// Image URL normalization utilities for processing and optimizing image references./// Provides methods for selecting optimal image formats, URL processing, and metadata integration./// </summary>public static class ImageUrlNormalizer{    /// <summary>    /// Select best JPG image URL from src/srcset attributes.    /// Prioritizes JPG format and higher resolution images when available.    /// </summary>    /// <param name="src">Source URL from src attribute</param>    /// <param name="srcset">Source set from srcset attribute with multiple resolutions</param>    /// <param name="baseUrl">Base URL for resolving relative paths</param>    /// <returns>Optimal JPG image URL or best available alternative</returns>    /// <example>    /// var bestUrl = ImageUrlNormalizer.PickJpg(    ///     "image.webp",     ///     "image-400.jpg 400w, image-800.jpg 800w",     ///     "https://example.com/");    /// // Returns: "https://example.com/image-800.jpg" (highest resolution JPG)    /// </example>    public static string PickJpg(string? src, string? srcset, string baseUrl)        => ScrapingUtils.PickJpg(src, srcset, baseUrl);    /// <summary>    /// Add thumbnail to metadata with automatic format conversion.    /// Automatically converts WebP URLs to JPG format when possible for better compatibility.    /// </summary>    /// <param name="meta">Metadata object to add thumbnail to</param>    /// <param name="url">Thumbnail URL to add</param>    /// <example>    /// ImageUrlNormalizer.AddThumb(metadata, "https://example.com/thumb.webp");    /// // Adds thumbnail with potential WebP to JPG conversion    /// </example>    public static void AddThumb(Metadata meta, string? url)        => ScrapingUtils.AddThumb(meta, url);    /// <summary>    /// URL equality comparison for duplicate detection.    /// Performs normalized comparison of URLs to identify duplicates.    /// </summary>    /// <param name="a">First URL to compare</param>    /// <param name="b">Second URL to compare</param>    /// <returns>True if URLs are considered equivalent</returns>    /// <example>    /// var isDuplicate = ImageUrlNormalizer.UrlEq(    ///     "https://example.com/image.jpg",    ///     "https://example.com/image.jpg?v=1");    /// // Returns: false (query parameters make them different)    /// </example>    public static bool UrlEq(string? a, string? b)        => ScrapingUtils.UrlEq(a, b);}

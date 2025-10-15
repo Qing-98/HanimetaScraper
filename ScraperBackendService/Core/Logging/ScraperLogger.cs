@@ -19,7 +19,7 @@ public static class ScraperLogger
     public static void LogSuccess(this ILogger logger, string operation, string? identifier = null, int? itemCount = null)
     {
         if (!logger.IsEnabled(LogLevel.Information)) return;
-        
+
         if (identifier != null && itemCount.HasValue)
         {
             logger.LogInformation("[{Operation}] ✅ {Identifier} -> {ItemCount} items", operation, identifier, itemCount.Value);
@@ -41,7 +41,7 @@ public static class ScraperLogger
     public static void LogWarning(this ILogger logger, string operation, string warning, string? identifier = null, Exception? ex = null)
     {
         if (!logger.IsEnabled(LogLevel.Warning)) return;
-        
+
         var message = identifier != null
             ? "[{Operation}] ⚠️ {Identifier} | {Warning}"
             : "[{Operation}] ⚠️ {Warning}";
@@ -109,7 +109,7 @@ public static class ScraperLogger
     /// Log debug information (Debug level).
     /// Use sparingly for detailed troubleshooting information.
     /// </summary>
-    public static void LogDebug(this ILogger logger, string operation, string info, string? identifier = null)
+    public static void LogDebug(this ILogger logger, string operation, string info, string? identifier = null, Exception? ex = null)
     {
         if (!logger.IsEnabled(LogLevel.Debug)) return;
 
@@ -117,13 +117,27 @@ public static class ScraperLogger
             ? "[{Operation}] 🔍 {Identifier} | {Info}"
             : "[{Operation}] 🔍 {Info}";
 
-        if (identifier != null)
+        if (ex != null)
         {
-            logger.LogDebug(message, operation, identifier, info);
+            if (identifier != null)
+            {
+                logger.LogDebug(ex, message, operation, identifier, info);
+            }
+            else
+            {
+                logger.LogDebug(ex, message, operation, info);
+            }
         }
         else
         {
-            logger.LogDebug(message, operation, info);
+            if (identifier != null)
+            {
+                logger.LogDebug(message, operation, identifier, info);
+            }
+            else
+            {
+                logger.LogDebug(message, operation, info);
+            }
         }
     }
 
@@ -148,7 +162,7 @@ public static class ScraperLogger
             var message = identifier != null
                 ? "[Resource] {Resource} {Action} | {Identifier}"
                 : "[Resource] {Resource} {Action}";
-            
+
             if (identifier != null)
             {
                 logger.LogDebug(message, resource, action, identifier);
@@ -173,7 +187,7 @@ public static class ScraperLogger
             var logMessage = identifier != null 
                 ? $"{timestamp} [{operation}] {identifier} | {message}"
                 : $"{timestamp} [{operation}] {message}";
-            
+
             Console.WriteLine(logMessage);
         }
         catch
@@ -233,15 +247,15 @@ public static class ScraperLogger
         var activity = ActivitySource.StartActivity($"Scraper.{operation}");
         activity?.SetTag("operation", operation);
         if (identifier != null) activity?.SetTag("identifier", identifier);
-        
+
         var stopwatch = Stopwatch.StartNew();
-        
+
         if (logger.IsEnabled(LogLevel.Information))
         {
             var message = identifier != null 
                 ? "[{Operation}] 🚀 Starting | {Identifier}"
                 : "[{Operation}] 🚀 Starting";
-            
+
             logger.LogInformation(message, operation, identifier);
         }
 
@@ -269,15 +283,15 @@ public static class ScraperLogger
         public void Dispose()
         {
             if (_disposed) return;
-            
+
             _stopwatch.Stop();
-            
+
             if (_logger.IsEnabled(LogLevel.Information))
             {
                 var message = _identifier != null
                     ? "[{Operation}] ⏱️ Completed | {Identifier} | {Duration}ms"
                     : "[{Operation}] ⏱️ Completed | {Duration}ms";
-                
+
                 _logger.LogInformation(message, _operation, _identifier, _stopwatch.ElapsedMilliseconds);
             }
 

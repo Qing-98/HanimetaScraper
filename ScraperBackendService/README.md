@@ -1,119 +1,1 @@
-# ScraperBackendService
-
-Core backend service for HanimetaScraper, providing REST API for metadata scraping.
-
-## Features
-
-- **Multi-Provider Support** - Hanime, DLsite
-- **RESTful API** - Standardized JSON responses
-- **Anti-Bot Protection** - Playwright browser automation
-- **Concurrency Control** - Configurable provider access limits
-- **Caching Mechanism** - Memory cache to reduce duplicate requests
-- **Authentication** - Optional API Token auth
-
-## API Endpoints
-
-### Base
-- `GET /` - Service information
-- `GET /health` - Health check
-- `GET /cache/stats` - Cache statistics
-- `DELETE /cache/clear` - Clear all cache
-- `DELETE /cache/{provider}/{id}` - Remove specific cache entry
-
-### Hanime
-- `GET /api/hanime/search?title={query}&max={limit}` - Search
-- `GET /api/hanime/{id}` - Get details
-
-### DLsite  
-- `GET /api/dlsite/search?title={query}&max={limit}` - Search
-- `GET /api/dlsite/{id}` - Get details
-
-## Configuration
-
-### Main Configuration Items (appsettings.json)
-
-```json
-{
-  "ServiceConfig": {
-    "Port": 8585,
-    "Host": "0.0.0.0",
-    "AuthToken": "",
-    "TokenHeaderName": "X-API-Token",
-    "HanimeMaxConcurrentRequests": 3,
-    "DlsiteMaxConcurrentRequests": 3,
-    "RequestTimeoutSeconds": 60,
-    "EnableAggressiveMemoryOptimization": true
-  }
-}
-```
-
-### Configuration Options Explained
-
-| Setting | Description | Default | Recommended Range |
-|---------|-------------|---------|-------------------|
-| **Port** | HTTP listening port | 8585 | 1024-65535 |
-| **Host** | Listening address | "0.0.0.0" | "127.0.0.1" (local)/"0.0.0.0" (all interfaces) |
-| **AuthToken** | API authentication token | Empty string | Strong random string (required for production) |
-| **TokenHeaderName** | Auth header name | "X-API-Token" | Custom header name |
-| **HanimeMaxConcurrentRequests** | Hanime concurrency limit | 3 | 1-15 |
-| **DlsiteMaxConcurrentRequests** | DLsite concurrency limit | 3 | 1-15 |
-| **RequestTimeoutSeconds** | Request timeout in seconds | 60 | 30-300 |
-| **EnableAggressiveMemoryOptimization** | Enable aggressive memory optimization | false | true/false |
-
-### Concurrency Control Explanation
-
-**Provider Concurrency Limits** - Unified control for website access:
-- `HanimeMaxConcurrentRequests` - Limits simultaneous access to Hanime website
-- `DlsiteMaxConcurrentRequests` - Limits simultaneous access to DLsite website
-- Covers all operations: search, detail fetching, direct ID queries
-- Returns 429 status when limit exceeded, frontend handles automatic retry
-
-### Environment Variable Overrides
-
-The following environment variables can override configuration file settings:
-
-| Environment Variable | Corresponding Config | Example |
-|---------------------|---------------------|---------|
-| **SCRAPER_PORT** | Port | `8080` |
-| **SCRAPER_AUTH_TOKEN** | AuthToken | `your-secret-token-here` |
-
-### Cache Configuration
-
-Cache system is automatically configured with main parameters:
-- **Cache Capacity**: 100 entries
-- **Success Result TTL**: 2 minutes
-- **Failure Result TTL**: 2 minutes
-- **Eviction Policy**: LRU (Least Recently Used)
-
-### Performance Tuning Recommendations
-
-**Low Load Environment (Personal Use):**
-```json
-{
-  "HanimeMaxConcurrentRequests": 3,
-  "DlsiteMaxConcurrentRequests": 3
-}
-```
-
-**High Load Environment (Multi-User):**
-```json
-{
-  "HanimeMaxConcurrentRequests": 10,
-  "DlsiteMaxConcurrentRequests": 10
-}
-```
-
-**Conservative Settings (Avoid Blocking):**
-```json
-{
-  "HanimeMaxConcurrentRequests": 1,
-  "DlsiteMaxConcurrentRequests": 1
-}
-```
-
-## Tech Stack
-
-- **.NET 8** - Modern C# runtime
-- **ASP.NET Core** - Web API framework
-- **Playwright** - Browser automation
-- **HtmlAgilityPack** - HTML parsing
+# ScraperBackendServiceCore backend service for HanimetaScraper, providing REST API for metadata scraping with advanced rate limiting and anti-detection capabilities.## Features### Core Capabilities- **Multi-Provider Support** - Hanime, DLsite with unified interface- **RESTful API** - Standardized JSON responses- **Anti-Bot Protection** - Playwright browser automation with stealth mode- **Smart Caching** - Memory cache with LRU eviction to reduce duplicate requests- **Authentication** - Optional API Token auth for secure deployment### Advanced Rate Limiting- **Concurrency Control** - Configurable provider access limits (default: 3 slots)- **Per-Slot Rate Limiting** - Enforces minimum delay between consecutive requests (default: 30s)- **Request Queuing** - Waits up to 15s for available slots instead of immediate rejection- **Intelligent Throttling** - Prevents IP blocking while maximizing throughput### Performance Optimization- **Aggressive Memory Management** - Optional GC optimization for low-memory environments- **Extended Timeouts** - 150s backend timeout + 180s frontend timeout for complete request flow- **Cache Statistics** - Monitor cache hit rate and performance metrics- **Structured Logging** - Multiple verbosity levels for debugging and monitoring## API Endpoints### Base Endpoints- `GET /` - Service information and authentication status- `GET /health` - Health check endpoint- `GET /cache/stats` - Cache statistics (hit rate, eviction count, etc.)- `DELETE /cache/clear` - Clear all cached entries- `DELETE /cache/{provider}/{id}` - Remove specific cache entry### Hanime Endpoints- `GET /api/hanime/search?title={query}&max={limit}` - Search by title (rate limited)- `GET /api/hanime/{id}` - Get details by ID (rate limited)### DLsite Endpoints- `GET /api/dlsite/search?title={query}&max={limit}` - Search by title (rate limited)- `GET /api/dlsite/{id}` - Get details by ID (rate limited)## Configuration### Main Configuration Items (appsettings.json)```json{  "ServiceConfig": {    "Port": 8585,    "Host": "0.0.0.0",    "AuthToken": "",    "TokenHeaderName": "X-API-Token",    "HanimeMaxConcurrentRequests": 3,    "DlsiteMaxConcurrentRequests": 3,    "HanimeRateLimitSeconds": 30,    "DlsiteRateLimitSeconds": 30,    "RequestTimeoutSeconds": 150,    "EnableAggressiveMemoryOptimization": true  }}```### Configuration Options Explained| Setting | Description | Default | Recommended Range ||---------|-------------|---------|-------------------|| **Port** | HTTP listening port | 8585 | 1024-65535 || **Host** | Listening address | "0.0.0.0" | "127.0.0.1" (local)/"0.0.0.0" (all interfaces) || **AuthToken** | API authentication token | Empty string | Strong random string (required for production) || **TokenHeaderName** | Auth header name | "X-API-Token" | Custom header name || **HanimeMaxConcurrentRequests** | Hanime concurrent slots | 3 | 1-10 || **DlsiteMaxConcurrentRequests** | DLsite concurrent slots | 3 | 1-10 || **HanimeRateLimitSeconds** | Hanime rate limit per slot | 30 | 10-60 || **DlsiteRateLimitSeconds** | DLsite rate limit per slot | 30 | 10-60 || **RequestTimeoutSeconds** | Request timeout in seconds | 150 | 90-300 || **EnableAggressiveMemoryOptimization** | Enable aggressive GC | true | true/false |### Concurrency and Rate Limiting Explained**Concurrency Control:**- Limits the number of simultaneous requests per provider- Each slot processes one request at a time- Prevents overwhelming target websites- Returns 429 status when all slots occupied (after 15s wait)**Per-Slot Rate Limiting:**- Enforces minimum delay between consecutive requests from the same slot- Slot 0: Request A (30s delay) → Request B- Slot 1: Request C (30s delay) → Request D- Prevents rapid-fire requests that trigger anti-bot measures**Request Flow Timeline:**```Request arrives    ↓Check cache (1ms)    ├─ Hit → Return immediately ✅    └─ Miss ↓        Wait for slot (0-15s)            ↓        Rate limit wait (0-30s)            ↓        Scrape website (5-60s)            ↓        Cache result → Return```**Worst Case:** 15s (slot wait) + 30s (rate limit) + 60s (scrape) = 105s### Environment Variable OverridesThe following environment variables can override configuration file settings:| Environment Variable | Corresponding Config | Example ||---------------------|---------------------|---------|| **SCRAPER_PORT** | Port | `8080` || **SCRAPER_AUTH_TOKEN** | AuthToken | `your-secret-token-here` |### Performance Tuning Recommendations**Personal Use (Low Traffic):**```json{  "HanimeMaxConcurrentRequests": 3,  "HanimeRateLimitSeconds": 30,  "RequestTimeoutSeconds": 150}```- **Response Time**: 30-60s avg- **Success Rate**: >95%- **Risk Level**: Low**Multi-User (High Traffic):**```json{  "HanimeMaxConcurrentRequests": 5,  "HanimeRateLimitSeconds": 25,  "RequestTimeoutSeconds": 150}```- **Response Time**: 25-50s avg- **Success Rate**: >90%- **Risk Level**: Medium**Conservative (Avoid Blocking):**```json{  "HanimeMaxConcurrentRequests": 1,  "HanimeRateLimitSeconds": 60,  "RequestTimeoutSeconds": 180}```- **Response Time**: 60-120s avg- **Success Rate**: >99%- **Risk Level**: Very Low### Disable Rate Limiting (For Testing Only)To disable rate limiting completely:```json{  "HanimeRateLimitSeconds": 0,  "DlsiteRateLimitSeconds": 0}```⚠️ **Warning**: This may result in IP blocking. Use only for testing or private instances with permission.## Logging SystemThe service provides structured logging with multiple verbosity levels:### Log Levels**LogAlways (Always Visible):**- User operations: `Query: '{id}'`, `Searching: '{title}'`- Operation results: `✅ Found`, `❌ Not found`, `Found 12 results`- Rate limit waits: `Waiting 25s (rate limit)`- Service status: `Listening on ...`, `Service stopped`**LogInformation (Info+ Visible):**- Cache operations: `Cache hit: '{id}'`- Internal flow status**LogDebug (Debug+ Visible):**- Slot allocation: `Acquired slot {SlotId}`- Memory management: `Freed 15MB`- Performance metrics**LogWarning (Warning+ Visible):**- 429 errors: `🚦 Rate limited - Service busy`- Non-critical failures### Log Output Examples**Cache Hit (Fastest):**```12:34:56 [HanimeDetail] Query: '12345'12:34:56 [HanimeDetail] ✅ Found (cache)```**Rate Limited (Normal):**```12:34:56 [HanimeDetail] Query: '12345'12:34:57 [HanimeDetail] Waiting 25s (rate limit)12:35:22 [HanimeDetail] ✅ Found```**Service Busy (429):**```12:34:56 [HanimeDetail] Query: '12345'12:35:11 [HanimeDetail] 🚦 Rate limited - Service busy```### Configure Log LevelsIn `appsettings.json`:```json{  "Logging": {    "LogLevel": {      "Default": "Information",      "ScraperBackendService": "Information"    }  }}```**Recommended Settings:**| Environment | Setting | Output ||------------|---------|--------|| **Production** | `"Information"` | 2-3 lines per request || **Development** | `"Debug"` | 5-8 lines per request || **Quiet** | `"Warning"` | Only errors and rate limits |## Tech Stack- **.NET 8** - Modern C# runtime with performance improvements- **ASP.NET Core** - Web API framework with dependency injection- **Playwright** - Headless browser automation for dynamic content- **HtmlAgilityPack** - Fast HTML parsing and DOM navigation- **System.Text.Json** - High-performance JSON serialization## Troubleshooting### Problem: High Response Time**Symptoms:** Requests take 60+ seconds consistently**Diagnosis:**```bashcurl http://localhost:8585/cache/stats# Check hit ratio - should be >50% for normal usage```**Solutions:**1. Cache is cold - wait for warm-up2. Reduce rate limit: `HanimeRateLimitSeconds: 20`3. Increase slots: `HanimeMaxConcurrentRequests: 5`### Problem: Frequent 429 Errors**Symptoms:** Many "Service busy" messages in logs**Diagnosis:**- Too many concurrent requests from frontend- Rate limit too strict for traffic pattern**Solutions:**1. Increase slots: `HanimeMaxConcurrentRequests: 5`2. Increase backend timeout: `RequestTimeoutSeconds: 180`3. Implement request backoff in frontend### Problem: IP Blocking**Symptoms:** Cloudflare challenges, access denied errors**Diagnosis:**- Rate limiting too aggressive- Too many concurrent requests**Solutions:**1. Increase rate limit: `HanimeRateLimitSeconds: 45`2. Reduce slots: `HanimeMaxConcurrentRequests: 2`3. Enable stealth mode (already enabled by default)4. Rotate IP addresses if available### Problem: Memory Issues**Symptoms:** High memory usage, OOM errors**Diagnosis:**```bash# Check memory optimization settingcat appsettings.json | grep EnableAggressiveMemoryOptimization```**Solutions:**1. Enable: `"EnableAggressiveMemoryOptimization": true`2. Reduce cache size in code3. Restart service periodically## Development### Building from Source```bashcd ScraperBackendServicedotnet builddotnet run```### Running Tests```bashcd Test/NewScraperTestdotnet run```### API Testing```bash# Health checkcurl http://localhost:8585/health# Cache statisticscurl http://localhost:8585/cache/stats# Searchcurl "http://localhost:8585/api/hanime/search?title=love&max=5"# Get detailscurl http://localhost:8585/api/hanime/12345```## LicenseMIT License## ContributingContributions are welcome! Please:1. Follow existing code style2. Add tests for new features3. Update documentation4. Submit Pull Request## SupportFor issues and feature requests, please use the [GitHub Issues](https://github.com/Qing-98/HanimetaScraper/issues) page.

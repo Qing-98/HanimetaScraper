@@ -1,70 +1,1 @@
-# HanimetaScraper
-
-A .NET 8 based Jellyfin metadata scraping solution for Hanime and DLsite content.
-
-## Project Structure
-
-### Backend Service
-- **ScraperBackendService** - Core scraping backend service providing REST API
-
-### Jellyfin Plugins
-- **Jellyfin.Plugin.Hanimeta.HanimeScraper** - Hanime metadata provider plugin
-- **Jellyfin.Plugin.Hanimeta.DLsiteScraper** - DLsite metadata provider plugin
-- **Jellyfin.Plugin.Hanimeta.Common** - Shared plugin library
-
-### Test Tools
-- **NewScraperTest** - Backend service test suite
-
-## Features
-
-- 🔍 **Smart Search** - Search content by title or ID
-- 📊 **Rich Metadata** - Title, description, rating, release date, personnel information
-- 🖼️ **Image Support** - Cover, backdrop, thumbnails
-- 🎌 **Multi-language** - Support for Chinese and Japanese content
-- ⚡ **High Performance** - Concurrent processing, caching, retry mechanisms
-- 🛡️ **Anti-Detection** - Handle Cloudflare and other anti-bot mechanisms
-
-## Architecture
-
-```
-Jellyfin Plugins → HTTP API → ScraperBackendService → Website Scrapers
-```
-
-The backend service provides unified API, plugins fetch metadata via HTTP requests with caching and concurrency control.
-
-## Configuration
-
-### Backend Service Configuration
-
-Main configuration items (appsettings.json):
-```json
-{
-  "ServiceConfig": {
-    "Port": 8585,
-    "AuthToken": "",
-    "MaxConcurrentRequests": 10,
-    "RequestTimeoutSeconds": 60
-  }
-}
-```
-
-### Plugin Configuration Options
-
-Each plugin supports the following configuration items:
-
-| Setting | Description | Default | Example |
-|---------|-------------|---------|---------|
-| **Backend URL** | ScraperBackendService URL | `http://127.0.0.1:8585` | `https://scraper.mydomain.com` |
-| **API Token** | Backend service auth token (optional) | Empty | `your-secret-token-123` |
-| **Enable Logging** | Plugin debug logging control | `false` | `true` (for debugging) |
-| **Tag Mapping Mode** | Tag destination selection | `Tags` | `Tags` or `Genres` |
-
-**Tag Mapping Mode Explanation:**
-- **Tags Mode**: Series + Content Tags → Jellyfin Tags field, Backend Genres → Jellyfin Genres field
-- **Genres Mode**: Series + Content Tags → Jellyfin Genres field (merged with Backend Genres)
-
-Configuration Path: **Admin Dashboard → Plugins → [Plugin Name] → Settings**
-
-## License
-
-MIT License
+# HanimetaScraperA .NET 8 based Jellyfin metadata scraping solution for Hanime and DLsite content with advanced rate limiting and anti-detection capabilities.## Project Structure### Backend Service- **ScraperBackendService** - Core scraping backend service providing REST API with rate limiting and caching### Jellyfin Plugins- **Jellyfin.Plugin.Hanimeta.HanimeScraper** - Hanime metadata provider plugin- **Jellyfin.Plugin.Hanimeta.DLsiteScraper** - DLsite metadata provider plugin- **Jellyfin.Plugin.Hanimeta.Common** - Shared plugin library## Features### Core Features- 🔍 **Smart Search** - Search content by title or ID- 📊 **Rich Metadata** - Title, description, rating, release date, personnel information- 🖼️ **Image Support** - Cover, backdrop, thumbnails- 🎌 **Multi-language** - Support for Chinese and Japanese content- ⚡ **High Performance** - Concurrent processing, intelligent caching, retry mechanisms### Advanced Features- 🛡️ **Anti-Detection** - Handle Cloudflare and other anti-bot mechanisms- ⏱️ **Rate Limiting** - Per-slot rate limiting to prevent IP blocking- 🔄 **Request Queuing** - Wait for available slots instead of immediate failure- 💾 **Smart Caching** - Memory cache with LRU eviction policy- 📝 **Structured Logging** - Comprehensive logging with multiple verbosity levels- ⚙️ **Flexible Configuration** - Fine-grained control over concurrency and rate limits## Architecture```Jellyfin Plugins → HTTP API (3min timeout) → ScraperBackendService (150s timeout) → Website Scrapers                                                      ↓                                          Concurrency Control (3 slots)                                                      ↓                                          Rate Limiting (30s per slot)                                                      ↓                                          Provider Access (Hanime/DLsite)```The backend service provides unified API with:- **Concurrency Control**: Limits simultaneous requests per provider- **Rate Limiting**: Enforces delay between requests from the same slot- **Smart Caching**: Reduces redundant requests- **Request Queuing**: Waits up to 15s for available slots## Quick Start### 1. Backend Service Setup```bashcd ScraperBackendServicedotnet run```Service will start on `http://0.0.0.0:8585`### 2. Plugin Installation1. Copy plugin DLLs to Jellyfin plugins directory:   - Hanime: `Jellyfin.Plugin.Hanimeta.HanimeScraper.dll`   - DLsite: `Jellyfin.Plugin.Hanimeta.DLsiteScraper.dll`   - Common: `Jellyfin.Plugin.Hanimeta.Common.dll`2. Restart Jellyfin3. Configure backend URL in plugin settings:   - **Admin Dashboard → Plugins → [Plugin Name] → Settings**   - Set **Backend URL**: `http://127.0.0.1:8585` (or your server IP)### 3. UsageSimply scan your media library in Jellyfin, and the plugins will automatically fetch metadata from the backend service.## Configuration### Backend Service ConfigurationMain configuration items (appsettings.json):```json{  "ServiceConfig": {    "Port": 8585,    "Host": "0.0.0.0",    "AuthToken": "",    "HanimeMaxConcurrentRequests": 3,    "DlsiteMaxConcurrentRequests": 3,    "HanimeRateLimitSeconds": 30,    "DlsiteRateLimitSeconds": 30,    "RequestTimeoutSeconds": 150  }}```**Configuration Explained:**| Setting | Description | Default | Recommended Range ||---------|-------------|---------|-------------------|| **Port** | HTTP listening port | 8585 | 1024-65535 || **Host** | Listening address | "0.0.0.0" | "127.0.0.1" (local) / "0.0.0.0" (all) || **AuthToken** | API authentication token | Empty | Strong random string || **HanimeMaxConcurrentRequests** | Hanime concurrent slots | 3 | 1-10 || **DlsiteMaxConcurrentRequests** | DLsite concurrent slots | 3 | 1-10 || **HanimeRateLimitSeconds** | Hanime rate limit (per slot) | 30 | 10-60 || **DlsiteRateLimitSeconds** | DLsite rate limit (per slot) | 30 | 10-60 || **RequestTimeoutSeconds** | Request timeout | 150 | 90-300 |**Rate Limiting Explained:**- **Concurrent Slots**: Limits how many requests can execute simultaneously- **Rate Limit**: Enforces minimum delay between consecutive requests from the same slot- **Request Queuing**: Requests wait up to 15s for available slots before returning 429**Example Scenarios:**| Scenario | Slots | Rate Limit | Behavior ||----------|-------|------------|----------|| **Aggressive** | 10 | 10s | Fast but risky (may trigger blocking) || **Balanced** | 3 | 30s | Good balance (recommended) || **Conservative** | 1 | 60s | Slowest but safest |### Plugin Configuration OptionsEach plugin supports the following configuration items:| Setting | Description | Default | Example ||---------|-------------|---------|---------|| **Backend URL** | ScraperBackendService URL | `http://127.0.0.1:8585` | `https://scraper.mydomain.com` || **API Token** | Backend service auth token (optional) | Empty | `your-secret-token-123` || **Enable Logging** | Plugin debug logging control | `false` | `true` (for debugging) || **Tag Mapping Mode** | Tag destination selection | `Tags` | `Tags` or `Genres` |**Tag Mapping Mode Explanation:**- **Tags Mode**: Series + Content Tags → Jellyfin Tags field, Backend Genres → Jellyfin Genres field- **Genres Mode**: Series + Content Tags → Jellyfin Genres field (merged with Backend Genres)Configuration Path: **Admin Dashboard → Plugins → [Plugin Name] → Settings**## Performance Tuning### Response Time Optimization**Best Case** (Cache Hit):```Request → Cache Hit → ResponseDuration: ~1ms ✅```**Normal Case** (Rate Limited):```Request → Wait for Slot → Rate Limit Wait → Scrape → Cache → ResponseDuration: ~35-60s ⏱️```**Worst Case** (All Waits):```Request → Wait 15s for Slot → Rate Limit 30s → Scrape 60s → ResponseDuration: ~105s 🐌```### Configuration Recommendations**Personal Use** (Low traffic):```json{  "HanimeMaxConcurrentRequests": 3,  "HanimeRateLimitSeconds": 30}```**Multi-User** (High traffic):```json{  "HanimeMaxConcurrentRequests": 5,  "HanimeRateLimitSeconds": 25}```**Conservative** (Avoid blocking):```json{  "HanimeMaxConcurrentRequests": 1,  "HanimeRateLimitSeconds": 60}```### Disable Rate Limiting (Not Recommended)To disable rate limiting (for testing or private instances):```json{  "HanimeRateLimitSeconds": 0,  "DlsiteRateLimitSeconds": 0}```⚠️ **Warning**: Disabling rate limiting may result in IP blocking by target websites.## API Endpoints### Base- `GET /` - Service information- `GET /health` - Health check- `GET /cache/stats` - Cache statistics- `DELETE /cache/clear` - Clear all cache- `DELETE /cache/{provider}/{id}` - Remove specific cache entry### Hanime- `GET /api/hanime/search?title={query}&max={limit}` - Search by title- `GET /api/hanime/{id}` - Get details by ID### DLsite  - `GET /api/dlsite/search?title={query}&max={limit}` - Search by title- `GET /api/dlsite/{id}` - Get details by ID## Troubleshooting### High Response Time**Symptoms:** Requests take 60+ seconds**Solutions:**1. Check cache hit rate: `GET /cache/stats`2. Reduce rate limit: `HanimeRateLimitSeconds: 15`3. Increase concurrent slots: `HanimeMaxConcurrentRequests: 5`### Frequent 429 Errors**Symptoms:** Many "Service busy" messages**Solutions:**1. Increase concurrent slots: `HanimeMaxConcurrentRequests: 5`2. Increase backend timeout: `RequestTimeoutSeconds: 180`### IP Blocking**Symptoms:** Requests fail with Cloudflare challenges**Solutions:**1. Increase rate limit: `HanimeRateLimitSeconds: 45`2. Reduce concurrent slots: `HanimeMaxConcurrentRequests: 2`3. Enable aggressive memory optimization## Documentation- **Backend README**: [ScraperBackendService/README.md](ScraperBackendService/README.md)- **Rate Limiting Guide**: [ScraperBackendService/RATE_LIMITING_AND_TIMEOUT_GUIDE.md](ScraperBackendService/RATE_LIMITING_AND_TIMEOUT_GUIDE.md)- **Logging Strategy**: [ScraperBackendService/FINAL_LOGGING_STRATEGY.md](ScraperBackendService/FINAL_LOGGING_STRATEGY.md)- **Anti-Detection Guide**: [ScraperBackendService/AntiCloudflare/ANTI_DETECTION_GUIDE.md](ScraperBackendService/AntiCloudflare/ANTI_DETECTION_GUIDE.md)## LicenseMIT License## ContributingContributions are welcome! Please feel free to submit a Pull Request.## SupportFor issues and feature requests, please use the [GitHub Issues](https://github.com/Qing-98/HanimetaScraper/issues) page.

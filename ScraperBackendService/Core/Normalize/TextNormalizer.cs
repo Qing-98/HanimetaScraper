@@ -1,26 +1,1 @@
-using System.Text.RegularExpressions;
-using System.Net;
-using ScraperBackendService.Core.Util;
-
-namespace ScraperBackendService.Core.Normalize;
-
-public static class TextNormalizer
-{
-    /// <summary>
-    /// Remove extra symbols/marks, suitable for constructing search keywords from filenames.
-    /// </summary>
-    public static string BuildQueryFromFilename(string filenameOrText)
-        => ScrapingUtils.BuildQueryFromFilename(filenameOrText);
-
-    /// <summary>
-    /// Preserve letters/digits/spaces/underscores/hyphens, replace others with spaces; convert spaces to +
-    /// </summary>
-    public static string NormalizeKeyword(string s)
-        => ScrapingUtils.NormalizeKeyword(s);
-
-    /// <summary>
-    /// General cleaning: decode HTML, replace full-width spaces, compress extra spaces.
-    /// </summary>
-    public static string Clean(string s)
-        => ScrapingUtils.Clean(s);
-}
+using System.Text.RegularExpressions;using System.Net;using ScraperBackendService.Core.Util;namespace ScraperBackendService.Core.Normalize;/// <summary>/// Text normalization utilities for cleaning and processing text content./// Provides specialized methods for filename processing, keyword normalization, and general text cleaning./// </summary>public static class TextNormalizer{    /// <summary>    /// Remove extra symbols/marks, suitable for constructing search keywords from filenames.    /// Extracts meaningful search terms from filename patterns commonly used in media files.    /// </summary>    /// <param name="filenameOrText">Filename or text to process for search keywords</param>    /// <returns>Cleaned text suitable for search queries</returns>    /// <example>    /// var query = BuildQueryFromFilename("Movie.Title.2024.720p.BluRay.x264-GROUP.mkv");    /// // Returns: "Movie Title 2024"    ///    /// var query2 = BuildQueryFromFilename("[RJ123456] Game Title (English).zip");    /// // Returns: "Game Title English"    /// </example>    public static string BuildQueryFromFilename(string filenameOrText)        => ScrapingUtils.BuildQueryFromFilename(filenameOrText);    /// <summary>    /// Preserve letters/digits/spaces/underscores/hyphens, replace others with spaces; convert spaces to +    /// Normalizes keywords for use in search URLs and query parameters.    /// </summary>    /// <param name="s">String to normalize for search</param>    /// <returns>Normalized keyword string with proper encoding</returns>    /// <example>    /// var normalized = NormalizeKeyword("anime title!");    /// // Returns: "anime+title"    ///    /// var normalized2 = NormalizeKeyword("search-term_with/symbols");    /// // Returns: "search-term_with+symbols"    /// </example>    public static string NormalizeKeyword(string s)        => ScrapingUtils.NormalizeKeyword(s);    /// <summary>    /// General cleaning: decode HTML, replace full-width spaces, compress extra spaces.    /// Provides comprehensive text cleaning for display and processing purposes.    /// </summary>    /// <param name="s">String to clean</param>    /// <returns>Cleaned and normalized text</returns>    /// <example>    /// var clean = Clean("Text&nbsp;with&amp;nbsp;HTML&nbsp;entities　and　full-width　spaces");    /// // Returns: "Text with HTML entities and full-width spaces"    ///    /// var clean2 = Clean("Multiple    spaces   and   tabs\t\t");    /// // Returns: "Multiple spaces and tabs"    /// </example>    public static string Clean(string s)        => ScrapingUtils.Clean(s);}

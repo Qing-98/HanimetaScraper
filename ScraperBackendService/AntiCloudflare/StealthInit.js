@@ -1,79 +1,1 @@
-(() => {
-    try {
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    } catch (e) { }
-
-    try {
-        const fakePlugins = [{ name: 'Chrome PDF Plugin' }, { name: 'Widevine Content Decryption Module' }];
-        Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins });
-    } catch (e) { }
-
-    try {
-        Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh'] });
-    } catch (e) { }
-
-    try {
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => {
-            if (parameters && parameters.name === 'notifications') {
-                return Promise.resolve({ state: Notification.permission });
-            }
-            return originalQuery(parameters);
-        };
-    } catch (e) { }
-
-    try {
-        if (!window.chrome) window.chrome = {};
-        if (!window.chrome.runtime) window.chrome.runtime = {};
-    } catch (e) { }
-
-    try {
-        Object.defineProperty(window, 'webdriver', { get: () => undefined });
-        Object.defineProperty(document, 'webdriver', { get: () => undefined });
-    } catch (e) { }
-
-    try {
-        Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-    } catch (e) { }
-
-    try {
-        const originalCall = Function.prototype.toString;
-        Function.prototype.toString = function () {
-            if (this === window.navigator.permissions.query) {
-                return 'function query() { [native code] }';
-            }
-            return originalCall.apply(this, arguments);
-        };
-    } catch (e) { }
-
-    try {
-        if (navigator.maxTouchPoints === 0) {
-            Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 1 });
-        }
-    } catch (e) { }
-
-    try {
-        const originalCreateElement = Document.prototype.createElement;
-        Document.prototype.createElement = function (tagName) {
-            const el = originalCreateElement.call(this, tagName);
-            if (tagName && tagName.toLowerCase() === 'iframe') {
-                try {
-                    Object.defineProperty(el, 'webdriver', { get: () => undefined });
-                } catch (e) { }
-            }
-            return el;
-        };
-    } catch (e) { }
-
-    try {
-        if (window.navigator.hardwareConcurrency === undefined) {
-            Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });
-        }
-    } catch (e) { }
-
-    try {
-        if (!window.chrome.loadTimes) {
-            window.chrome.loadTimes = function () { return { 'requestTime': Date.now() / 1000 }; };
-        }
-    } catch (e) { }
-})();
+(() => {    try {        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });    } catch (e) { }    try {        const fakePlugins = [{ name: 'Chrome PDF Plugin' }, { name: 'Widevine Content Decryption Module' }];        Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins });    } catch (e) { }    try {        Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN', 'zh'] });    } catch (e) { }    try {        const originalQuery = window.navigator.permissions.query;        window.navigator.permissions.query = (parameters) => {            if (parameters && parameters.name === 'notifications') {                return Promise.resolve({ state: Notification.permission });            }            return originalQuery(parameters);        };    } catch (e) { }    try {        if (!window.chrome) window.chrome = {};        if (!window.chrome.runtime) window.chrome.runtime = {};    } catch (e) { }    try {        Object.defineProperty(window, 'webdriver', { get: () => undefined });        Object.defineProperty(document, 'webdriver', { get: () => undefined });    } catch (e) { }    try {        Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });    } catch (e) { }    try {        const originalCall = Function.prototype.toString;        Function.prototype.toString = function () {            if (this === window.navigator.permissions.query) {                return 'function query() { [native code] }';            }            return originalCall.apply(this, arguments);        };    } catch (e) { }    try {        if (navigator.maxTouchPoints === 0) {            Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 1 });        }    } catch (e) { }    try {        const originalCreateElement = Document.prototype.createElement;        Document.prototype.createElement = function (tagName) {            const el = originalCreateElement.call(this, tagName);            if (tagName && tagName.toLowerCase() === 'iframe') {                try {                    Object.defineProperty(el, 'webdriver', { get: () => undefined });                } catch (e) { }            }            return el;        };    } catch (e) { }    try {        if (window.navigator.hardwareConcurrency === undefined) {            Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });        }    } catch (e) { }    try {        if (!window.chrome.loadTimes) {            window.chrome.loadTimes = function () { return { 'requestTime': Date.now() / 1000 }; };        }    } catch (e) { }})();

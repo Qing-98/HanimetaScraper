@@ -1,80 +1,1 @@
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text.Json;
-using Microsoft.Extensions.Logging;
-using ScraperBackendService.Core.Abstractions;
-
-namespace ScraperBackendService.Core.Net;
-
-public sealed class HttpNetworkClient : INetworkClient, IDisposable
-{
-    private readonly HttpClient _http;
-    private readonly ILogger<HttpNetworkClient> _logger;
-
-    // Reuse SocketsHttpHandler's high-performance defaults
-    public HttpNetworkClient(ILogger<HttpNetworkClient> logger, HttpClient? httpClient = null)
-    {
-        _logger = logger;
-        _http = httpClient ?? CreateDefaultClient();
-    }
-
-    public async Task<string> GetHtmlAsync(string url, CancellationToken ct)
-    {
-        _logger.LogDebug("Getting HTML from: {Url}", url);
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        resp.EnsureSuccessStatusCode();
-        return await resp.Content.ReadAsStringAsync(ct);
-    }
-
-    public async Task<JsonDocument> GetJsonAsync(string url, IDictionary<string, string>? headers, CancellationToken ct)
-    {
-        _logger.LogDebug("Getting JSON from: {Url}", url);
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
-        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        if (headers != null)
-        {
-            foreach (var kv in headers)
-            {
-                // Some common headers are in strongly-typed collections and need to be routed
-                if (string.Equals(kv.Key, "Referer", StringComparison.OrdinalIgnoreCase))
-                    req.Headers.Referrer = new Uri(kv.Value);
-                else
-                    req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-            }
-        }
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        resp.EnsureSuccessStatusCode();
-
-        await using var s = await resp.Content.ReadAsStreamAsync(ct);
-        return await JsonDocument.ParseAsync(s, cancellationToken: ct);
-    }
-
-    // HTTP version does not provide Page
-    public Task<Microsoft.Playwright.IPage?> OpenPageAsync(string url, CancellationToken ct)
-    {
-        _logger.LogDebug("OpenPageAsync called on HttpNetworkClient - returning null (use PlaywrightNetworkClient for page support)");
-        return Task.FromResult<Microsoft.Playwright.IPage?>(null);
-    }
-
-    public void Dispose() => _http.Dispose();
-
-    private static HttpClient CreateDefaultClient()
-    {
-        var handler = new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(90),
-            MaxConnectionsPerServer = 12,
-            EnableMultipleHttp2Connections = true,
-            UseCookies = false
-        };
-        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9,ja;q=0.8,zh-CN;q=0.7");
-        return http;
-    }
-}
+using System.Net;using System.Net.Http;using System.Net.Http.Headers;using System.Text.Json;using Microsoft.Extensions.Logging;using ScraperBackendService.Core.Abstractions;namespace ScraperBackendService.Core.Net;/// <summary>/// HTTP-based network client implementation for efficient static content retrieval./// Provides high-performance HTTP operations with automatic decompression, connection pooling,/// and optimized request handling for web scraping scenarios./// </summary>/// <remarks>/// This implementation:/// - Uses SocketsHttpHandler for optimal performance/// - Supports automatic decompression (GZip, Deflate, Brotli)/// - Implements connection pooling with lifecycle management/// - Provides JSON parsing with streaming support/// - Returns null for OpenPageAsync (use PlaywrightNetworkClient for browser features)/// </remarks>/// <example>/// Usage with dependency injection:/// services.AddHttpClient&lt;HttpNetworkClient&gt;();/// /// // Or manual instantiation/// using var client = new HttpNetworkClient(logger);/// var html = await client.GetHtmlAsync("https://example.com", cancellationToken);/// var json = await client.GetJsonAsync("https://api.example.com/data", headers, cancellationToken);/// </example>public sealed class HttpNetworkClient : INetworkClient, IDisposable{    private readonly HttpClient _http;    private readonly ILogger<HttpNetworkClient> _logger;    /// <summary>    /// Initializes a new HTTP network client with optimized configuration.    /// Uses high-performance SocketsHttpHandler defaults for web scraping scenarios.    /// </summary>    /// <param name="logger">Logger for request tracking and diagnostics</param>    /// <param name="httpClient">Optional HttpClient instance (uses default if null)</param>    public HttpNetworkClient(ILogger<HttpNetworkClient> logger, HttpClient? httpClient = null)    {        _logger = logger;        _http = httpClient ?? CreateDefaultClient();    }    /// <summary>    /// Retrieves HTML content from the specified URL with automatic decompression.    /// Optimized for web scraping with proper user agent and accept headers.    /// </summary>    /// <param name="url">Target URL to fetch HTML from</param>    /// <param name="ct">Cancellation token for request timeout</param>    /// <returns>HTML content as string</returns>    public async Task<string> GetHtmlAsync(string url, CancellationToken ct)    {        _logger.LogDebug("Getting HTML from: {Url}", url);        using var req = new HttpRequestMessage(HttpMethod.Get, url);        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);        resp.EnsureSuccessStatusCode();        return await resp.Content.ReadAsStringAsync(ct);    }    /// <summary>    /// Retrieves and parses JSON data from the specified URL with custom headers support.    /// Uses streaming JSON parsing for memory efficiency with large responses.    /// </summary>    /// <param name="url">Target URL to fetch JSON from</param>    /// <param name="headers">Optional HTTP headers to include in request</param>    /// <param name="ct">Cancellation token for request timeout</param>    /// <returns>Parsed JSON document</returns>    public async Task<JsonDocument> GetJsonAsync(string url, IDictionary<string, string>? headers, CancellationToken ct)    {        _logger.LogDebug("Getting JSON from: {Url}", url);        using var req = new HttpRequestMessage(HttpMethod.Get, url);        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));                if (headers != null)        {            foreach (var kv in headers)            {                // Route common headers to strongly-typed collections                if (string.Equals(kv.Key, "Referer", StringComparison.OrdinalIgnoreCase))                    req.Headers.Referrer = new Uri(kv.Value);                else                    req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);            }        }                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);        resp.EnsureSuccessStatusCode();        await using var s = await resp.Content.ReadAsStreamAsync(ct);        return await JsonDocument.ParseAsync(s, cancellationToken: ct);    }    /// <summary>    /// HTTP client does not support browser page operations.    /// Always returns null - use PlaywrightNetworkClient for browser features.    /// </summary>    /// <param name="url">Target URL (ignored in HTTP implementation)</param>    /// <param name="ct">Cancellation token (ignored in HTTP implementation)</param>    /// <returns>Always null for HTTP client</returns>    public Task<Microsoft.Playwright.IPage?> OpenPageAsync(string url, CancellationToken ct)    {        _logger.LogDebug("OpenPageAsync called on HttpNetworkClient - returning null (use PlaywrightNetworkClient for page support)");        return Task.FromResult<Microsoft.Playwright.IPage?>(null);    }    /// <summary>    /// Disposes the underlying HttpClient and associated resources.    /// </summary>    public void Dispose() => _http.Dispose();    /// <summary>    /// Creates a default HttpClient with optimized settings for web scraping.    /// Configures connection pooling, decompression, timeouts, and headers.    /// </summary>    /// <returns>Configured HttpClient instance</returns>    private static HttpClient CreateDefaultClient()    {        var handler = new SocketsHttpHandler        {            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,            PooledConnectionLifetime = TimeSpan.FromMinutes(10),            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(90),            MaxConnectionsPerServer = 12,            EnableMultipleHttp2Connections = true,            UseCookies = false // Disabled for stateless scraping        };                var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };                // Set realistic browser-like headers        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118 Safari/537.36");        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9,ja;q=0.8,zh-CN;q=0.7");                return http;    }}

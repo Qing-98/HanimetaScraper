@@ -1,168 +1,1 @@
-using Microsoft.Playwright;
-using ScraperBackendService.Core.Net;
-
-namespace ScraperBackendService.Core.Util;
-
-/// <summary>
-/// Playwright resource management utilities
-/// </summary>
-public static class PlaywrightResourceUtils
-{
-    /// <summary>
-    /// Safely close a page
-    /// </summary>
-    public static async Task SafeClosePageAsync(IPage? page)
-    {
-        if (page is null) return;
-        try
-        {
-            if (!page.IsClosed)
-                await page.CloseAsync();
-        }
-        catch
-        {
-            // Ignore close errors
-        }
-    }
-
-    /// <summary>
-    /// Safely close page and context
-    /// </summary>
-    public static async Task SafeCloseAsync(IPage? page, IBrowserContext? context)
-    {
-        await SafeClosePageAsync(page);
-        await SafeCloseContextAsync(context);
-    }
-
-    /// <summary>
-    /// Safely close browser context
-    /// </summary>
-    public static async Task SafeCloseContextAsync(IBrowserContext? context)
-    {
-        if (context is null) return;
-        try
-        {
-            await context.CloseAsync();
-        }
-        catch
-        {
-            // Ignore close errors
-        }
-    }
-
-    /// <summary>
-    /// Safely close browser
-    /// </summary>
-    public static async Task SafeCloseBrowserAsync(IBrowser? browser)
-    {
-        if (browser is null) return;
-        try
-        {
-            await browser.CloseAsync();
-        }
-        catch
-        {
-            // Ignore close errors
-        }
-    }
-
-    /// <summary>
-    /// Create standard browser launch options
-    /// </summary>
-    public static BrowserTypeLaunchOptions CreateLaunchOptions(bool headless = true, int slowMo = 0)
-    {
-        return new BrowserTypeLaunchOptions
-        {
-            Headless = headless,
-            SlowMo = slowMo, // SlowMo is int type, represents millisecond delay
-            Args = new[]
-            {
-                "--no-sandbox",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-web-security",
-                "--disable-features=VizDisplayCompositor"
-            }
-        };
-    }
-
-    /// <summary>
-    /// Create standard browser context options
-    /// </summary>
-    public static BrowserNewContextOptions CreateContextOptions(PlaywrightClientOptions options)
-    {
-        return new BrowserNewContextOptions
-        {
-            UserAgent = options.UserAgent,
-            Locale = options.Locale,
-            TimezoneId = options.TimezoneId,
-            ViewportSize = new ViewportSize
-            {
-                Width = options.ViewportWidth,
-                Height = options.ViewportHeight
-            },
-            ExtraHTTPHeaders = new Dictionary<string, string>
-            {
-                ["Accept-Language"] = options.AcceptLanguage
-            }
-        };
-    }
-
-    /// <summary>
-    /// Wait for page to load completely
-    /// </summary>
-    public static async Task WaitForReadyAsync(IPage page, string[] selectors, int timeoutMs = 15000)
-    {
-        foreach (var selector in selectors)
-        {
-            try
-            {
-                await page.Locator(selector).First.WaitForAsync(new LocatorWaitForOptions
-                {
-                    Timeout = timeoutMs
-                });
-                return; // Any selector match is sufficient
-            }
-            catch
-            {
-                // Continue trying next selector
-            }
-        }
-    }
-
-    /// <summary>
-    /// Check if page is a challenge page
-    /// </summary>
-    public static async Task<bool> IsChallengePage(IPage page, PlaywrightClientOptions options)
-    {
-        // Check URL
-        var url = page.Url;
-        if (!string.IsNullOrEmpty(url))
-        {
-            foreach (var hint in options.ChallengeUrlHints)
-            {
-                if (url.Contains(hint, StringComparison.OrdinalIgnoreCase))
-                    return true;
-            }
-        }
-
-        // Check DOM
-        try
-        {
-            var html = await page.ContentAsync();
-            if (!string.IsNullOrEmpty(html))
-            {
-                foreach (var hint in options.ChallengeDomHints)
-                {
-                    if (html.Contains(hint, StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-            }
-        }
-        catch
-        {
-            // Ignore content retrieval errors
-        }
-
-        return false;
-    }
-}
+using Microsoft.Playwright;using ScraperBackendService.Core.Net;namespace ScraperBackendService.Core.Util;/// <summary>/// Playwright resource management utilities/// </summary>public static class PlaywrightResourceUtils{    /// <summary>    /// Safely close a page    /// </summary>    public static async Task SafeClosePageAsync(IPage? page)    {        if (page is null) return;        try        {            if (!page.IsClosed)                await page.CloseAsync();        }        catch        {            // Ignore close errors        }    }    /// <summary>    /// Safely close page and context    /// </summary>    public static async Task SafeCloseAsync(IPage? page, IBrowserContext? context)    {        await SafeClosePageAsync(page);        await SafeCloseContextAsync(context);    }    /// <summary>    /// Safely close browser context    /// </summary>    public static async Task SafeCloseContextAsync(IBrowserContext? context)    {        if (context is null) return;        try        {            await context.CloseAsync();        }        catch        {            // Ignore close errors        }    }    /// <summary>    /// Safely close browser    /// </summary>    public static async Task SafeCloseBrowserAsync(IBrowser? browser)    {        if (browser is null) return;        try        {            await browser.CloseAsync();        }        catch        {            // Ignore close errors        }    }    /// <summary>    /// Create standard browser launch options    /// </summary>    public static BrowserTypeLaunchOptions CreateLaunchOptions(bool headless = true, int slowMo = 0)    {        return new BrowserTypeLaunchOptions        {            Headless = headless,            SlowMo = slowMo, // SlowMo is int type, represents millisecond delay            Args = new[]            {                "--no-sandbox",                "--disable-blink-features=AutomationControlled",                "--disable-web-security",                "--disable-features=VizDisplayCompositor"            }        };    }    /// <summary>    /// Create standard browser context options    /// </summary>    public static BrowserNewContextOptions CreateContextOptions(PlaywrightClientOptions options)    {        return new BrowserNewContextOptions        {            UserAgent = options.UserAgent,            Locale = options.Locale,            TimezoneId = options.TimezoneId,            ViewportSize = new ViewportSize            {                Width = options.ViewportWidth,                Height = options.ViewportHeight            },            ExtraHTTPHeaders = new Dictionary<string, string>            {                ["Accept-Language"] = options.AcceptLanguage            }        };    }    /// <summary>    /// Wait for page to load completely    /// </summary>    public static async Task WaitForReadyAsync(IPage page, string[] selectors, int timeoutMs = 15000)    {        foreach (var selector in selectors)        {            try            {                await page.Locator(selector).First.WaitForAsync(new LocatorWaitForOptions                {                    Timeout = timeoutMs                });                return; // Any selector match is sufficient            }            catch            {                // Continue trying next selector            }        }    }    /// <summary>    /// Check if page is a challenge page    /// </summary>    public static async Task<bool> IsChallengePage(IPage page, PlaywrightClientOptions options)    {        // Check URL        var url = page.Url;        if (!string.IsNullOrEmpty(url))        {            foreach (var hint in options.ChallengeUrlHints)            {                if (url.Contains(hint, StringComparison.OrdinalIgnoreCase))                    return true;            }        }        // Check DOM        try        {            var html = await page.ContentAsync();            if (!string.IsNullOrEmpty(html))            {                foreach (var hint in options.ChallengeDomHints)                {                    if (html.Contains(hint, StringComparison.OrdinalIgnoreCase))                        return true;                }            }        }        catch        {            // Ignore content retrieval errors        }        return false;    }}

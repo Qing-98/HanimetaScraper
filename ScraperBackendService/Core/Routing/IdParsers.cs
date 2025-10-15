@@ -1,49 +1,1 @@
-using System.Text.RegularExpressions;
-using System.Globalization;
-using ScrapingUtils = ScraperBackendService.Core.Util.ScrapingUtils;
-
-namespace ScraperBackendService.Core.Routing;
-
-/// <summary>
-/// ID parsing and URL construction utilities
-/// </summary>
-public static class IdParsers
-{
-    // Hanime related
-    public static bool TryParseHanimeId(string? input, out string id)
-        => ScrapingUtils.TryParseHanimeId(input, out id);
-
-    public static string BuildHanimeDetailUrl(string id) => $"https://hanime1.me/watch?v={id}";
-
-    public static bool TryExtractHanimeIdFromUrl(string url, out string id)
-        => ScrapingUtils.TryParseHanimeId(url, out id);
-
-    // DLsite related
-    public static bool TryParseDlsiteId(string? input, out string id)
-        => ScrapingUtils.TryParseDlsiteId(input, out id);
-
-    public static string ParseIdFromDlsiteUrl(string rawUrl)
-        => ScrapingUtils.ParseDlsiteIdFromUrl(rawUrl);
-
-    public static string BuildDlsiteDetailUrl(string id, bool preferManiax = true)
-    {
-        id = id.Trim().ToUpperInvariant();
-
-        // If ID clearly indicates site by prefix, choose accordingly
-        // VJ-prefixed IDs are served under the "pro" section; RJ are typically under "maniax"
-        var template = preferManiax
-            ? "https://www.dlsite.com/maniax/work/=/product_id/{0}.html"
-            : "https://www.dlsite.com/pro/work/=/product_id/{0}.html";
-
-        if (id.StartsWith("VJ", StringComparison.OrdinalIgnoreCase))
-        {
-            template = "https://www.dlsite.com/pro/work/=/product_id/{0}.html";
-        }
-        else if (id.StartsWith("RJ", StringComparison.OrdinalIgnoreCase))
-        {
-            template = "https://www.dlsite.com/maniax/work/=/product_id/{0}.html";
-        }
-
-        return string.Format(CultureInfo.InvariantCulture, template, id);
-    }
-}
+using System.Text.RegularExpressions;using System.Globalization;using ScrapingUtils = ScraperBackendService.Core.Util.ScrapingUtils;namespace ScraperBackendService.Core.Routing;/// <summary>/// ID parsing and URL construction utilities for content provider identifiers./// Provides centralized methods for extracting, validating, and constructing URLs/// from various content provider ID formats including Hanime and DLsite./// </summary>/// <remarks>/// This class handles:/// - ID extraction from URLs and direct input/// - URL construction from validated IDs/// - Provider-specific ID format validation/// - Multi-site URL routing based on ID prefixes/// </remarks>/// <example>/// Usage examples:////// // Hanime ID parsing/// if (IdParsers.TryParseHanimeId("https://hanime1.me/watch?v=12345", out var hanimeId))/// {///     var url = IdParsers.BuildHanimeDetailUrl(hanimeId);///     Console.WriteLine($"Hanime URL: {url}");/// }////// // DLsite ID parsing with automatic site selection/// if (IdParsers.TryParseDlsiteId("RJ123456", out var dlsiteId))/// {///     var url = IdParsers.BuildDlsiteDetailUrl(dlsiteId);///     Console.WriteLine($"DLsite URL: {url}");/// }/// </example>public static class IdParsers{    // ================= Hanime ID Processing =================    /// <summary>    /// Attempts to parse a Hanime ID from various input formats.    /// Supports direct IDs, URLs, and other identifier patterns.    /// </summary>    /// <param name="input">Input string that may contain a Hanime ID</param>    /// <param name="id">Extracted Hanime ID if successful</param>    /// <returns>True if ID was successfully parsed, false otherwise</returns>    /// <example>    /// // Parse from URL    /// if (TryParseHanimeId("https://hanime1.me/watch?v=12345", out var id1))    ///     Console.WriteLine($"ID: {id1}"); // Output: 12345    ///    /// // Parse from direct ID    /// if (TryParseHanimeId("86994", out var id2))    ///     Console.WriteLine($"ID: {id2}"); // Output: 86994    ///    /// // Invalid input    /// if (!TryParseHanimeId("invalid", out var id3))    ///     Console.WriteLine("Could not parse ID");    /// </example>    public static bool TryParseHanimeId(string? input, out string id)        => ScrapingUtils.TryParseHanimeId(input, out id);    /// <summary>    /// Constructs a Hanime detail page URL from a validated ID.    /// </summary>    /// <param name="id">Hanime content ID</param>    /// <returns>Complete URL to the Hanime watch page</returns>    /// <example>    /// var url = BuildHanimeDetailUrl("12345");    /// // Returns: "https://hanime1.me/watch?v=12345"    /// </example>    public static string BuildHanimeDetailUrl(string id) => $"https://hanime1.me/watch?v={id}";    /// <summary>    /// Extracts Hanime ID from a complete URL.    /// Convenience method that wraps TryParseHanimeId for URL-specific extraction.    /// </summary>    /// <param name="url">Complete Hanime URL</param>    /// <param name="id">Extracted ID if successful</param>    /// <returns>True if ID was successfully extracted from URL</returns>    /// <example>    /// if (TryExtractHanimeIdFromUrl("https://hanime1.me/watch?v=12345&extra=params", out var id))    ///     Console.WriteLine($"Extracted ID: {id}"); // Output: 12345    /// </example>    public static bool TryExtractHanimeIdFromUrl(string url, out string id)        => ScrapingUtils.TryParseHanimeId(url, out id);    // ================= DLsite ID Processing =================    /// <summary>    /// Attempts to parse a DLsite product ID from various input formats.    /// Supports RJ/VJ prefixed IDs, URLs, and other identifier patterns.    /// </summary>    /// <param name="input">Input string that may contain a DLsite ID</param>    /// <param name="id">Extracted DLsite ID if successful</param>    /// <returns>True if ID was successfully parsed, false otherwise</returns>    /// <example>    /// // Parse from URL    /// if (TryParseDlsiteId("https://www.dlsite.com/maniax/work/=/product_id/RJ123456.html", out var id1))    ///     Console.WriteLine($"ID: {id1}"); // Output: RJ123456    ///    /// // Parse from direct ID    /// if (TryParseDlsiteId("VJ987654", out var id2))    ///     Console.WriteLine($"ID: {id2}"); // Output: VJ987654    /// </example>    public static bool TryParseDlsiteId(string? input, out string id)        => ScrapingUtils.TryParseDlsiteId(input, out id);    /// <summary>    /// Parses DLsite product ID from a complete URL.    /// Returns empty string if no valid ID is found.    /// </summary>    /// <param name="rawUrl">Complete DLsite URL</param>    /// <returns>Extracted product ID or empty string if parsing fails</returns>    /// <example>    /// var id = ParseIdFromDlsiteUrl("https://www.dlsite.com/maniax/work/=/product_id/RJ123456.html");    /// // Returns: "RJ123456"    ///    /// var id2 = ParseIdFromDlsiteUrl("https://invalid-url.com");    /// // Returns: ""    /// </example>    public static string ParseIdFromDlsiteUrl(string rawUrl)        => ScrapingUtils.ParseDlsiteIdFromUrl(rawUrl);    /// <summary>    /// Constructs a DLsite detail page URL from a validated product ID with intelligent site selection.    /// Automatically routes to appropriate DLsite section based on ID prefix and preference settings.    /// </summary>    /// <param name="id">DLsite product ID (e.g., "RJ123456", "VJ987654")</param>    /// <param name="preferManiax">Whether to prefer Maniax site for ambiguous cases</param>    /// <returns>Complete URL to the appropriate DLsite detail page</returns>    /// <remarks>    /// Site selection logic:    /// - VJ-prefixed IDs: Always route to Pro section    /// - RJ-prefixed IDs: Always route to Maniax section    /// - Ambiguous IDs: Use preferManiax parameter for routing decision    /// - Maniax typically has broader content access and compatibility    /// </remarks>    /// <example>    /// // RJ ID always goes to Maniax    /// var url1 = BuildDlsiteDetailUrl("RJ123456");    /// // Returns: "https://www.dlsite.com/maniax/work/=/product_id/RJ123456.html"    ///    /// // VJ ID always goes to Pro    /// var url2 = BuildDlsiteDetailUrl("VJ987654");    /// // Returns: "https://www.dlsite.com/pro/work/=/product_id/VJ987654.html"    ///    /// // Prefer Pro site for ambiguous ID    /// var url3 = BuildDlsiteDetailUrl("123456", preferManiax: false);    /// // Returns: "https://www.dlsite.com/pro/work/=/product_id/123456.html"    ///    /// // Default Maniax preference for broader access    /// var url4 = BuildDlsiteDetailUrl("123456");    /// // Returns: "https://www.dlsite.com/maniax/work/=/product_id/123456.html"    /// </example>    public static string BuildDlsiteDetailUrl(string id, bool preferManiax = true)    {        id = id.Trim().ToUpperInvariant();        // Default template based on preference        var template = preferManiax            ? "https://www.dlsite.com/maniax/work/=/product_id/{0}.html"            : "https://www.dlsite.com/pro/work/=/product_id/{0}.html";        // Override template based on ID prefix for guaranteed correct routing        if (id.StartsWith("VJ", StringComparison.OrdinalIgnoreCase))        {            // VJ-prefixed IDs are exclusively served under the Pro section            template = "https://www.dlsite.com/pro/work/=/product_id/{0}.html";        }        else if (id.StartsWith("RJ", StringComparison.OrdinalIgnoreCase))        {            // RJ-prefixed IDs are typically served under the Maniax section            template = "https://www.dlsite.com/maniax/work/=/product_id/{0}.html";        }        return string.Format(CultureInfo.InvariantCulture, template, id);    }}

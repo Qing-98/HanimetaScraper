@@ -1,122 +1,1 @@
-namespace ScraperBackendService.Core.Util;
-
-/// <summary>
-/// Unified retry strategy utilities
-/// </summary>
-public static class RetryUtils
-{
-    /// <summary>
-    /// Retry strategy with exponential backoff
-    /// </summary>
-    public static async Task<T> RetryWithBackoffAsync<T>(
-        Func<CancellationToken, Task<T>> operation,
-        int maxRetries = 3,
-        TimeSpan? initialDelay = null,
-        double backoffMultiplier = 2.0,
-        CancellationToken cancellationToken = default)
-    {
-        var delay = initialDelay ?? TimeSpan.FromSeconds(1);
-        Exception? lastException = null;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++)
-        {
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return await operation(cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-
-                if (attempt == maxRetries)
-                    break;
-
-                await Task.Delay(delay, cancellationToken);
-                delay = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * backoffMultiplier);
-            }
-        }
-
-        throw new AggregateException($"Operation failed after {maxRetries + 1} attempts", lastException!);
-    }
-
-    /// <summary>
-    /// Simple retry strategy
-    /// </summary>
-    public static async Task<T> RetryAsync<T>(
-        Func<Task<T>> operation,
-        int maxRetries = 3,
-        TimeSpan? delay = null,
-        Func<Exception, bool>? shouldRetry = null)
-    {
-        var actualDelay = delay ?? TimeSpan.FromSeconds(1);
-        Exception? lastException = null;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++)
-        {
-            try
-            {
-                return await operation();
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-
-                if (attempt == maxRetries)
-                    break;
-
-                // Check if should retry
-                if (shouldRetry != null && !shouldRetry(ex))
-                    break;
-
-                if (delay.HasValue)
-                    await Task.Delay(actualDelay);
-            }
-        }
-
-        throw new AggregateException($"Operation failed after {maxRetries + 1} attempts", lastException!);
-    }
-
-    /// <summary>
-    /// Retry strategy for void operations
-    /// </summary>
-    public static async Task RetryAsync(
-        Func<Task> operation,
-        int maxRetries = 3,
-        TimeSpan? delay = null,
-        Func<Exception, bool>? shouldRetry = null)
-    {
-        await RetryAsync(async () =>
-        {
-            await operation();
-            return true; // Dummy return value
-        }, maxRetries, delay, shouldRetry);
-    }
-
-    /// <summary>
-    /// Conditional retry judgment
-    /// </summary>
-    public static bool ShouldRetryOnNetworkError(Exception ex)
-    {
-        return ex is HttpRequestException ||
-               ex is TaskCanceledException ||
-               ex is TimeoutException ||
-               (ex.Message?.Contains("timeout", StringComparison.OrdinalIgnoreCase) ?? false) ||
-               (ex.Message?.Contains("network", StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-
-    /// <summary>
-    /// Conditional retry judgment for Playwright-related errors
-    /// </summary>
-    public static bool ShouldRetryOnPlaywrightError(Exception ex)
-    {
-        return ShouldRetryOnNetworkError(ex) ||
-               (ex.Message?.Contains("Target page", StringComparison.OrdinalIgnoreCase) ?? false) ||
-               (ex.Message?.Contains("Browser has been closed", StringComparison.OrdinalIgnoreCase) ?? false) ||
-               (ex.Message?.Contains("Context or page has been closed", StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-}
+namespace ScraperBackendService.Core.Util;/// <summary>/// Unified retry strategy utilities for handling transient failures./// Provides various retry patterns with configurable backoff strategies and conditional retry logic./// </summary>public static class RetryUtils{    /// <summary>    /// Retry strategy with exponential backoff for robust error handling.    /// Implements progressive delay increases to avoid overwhelming failing services.    /// </summary>    /// <typeparam name="T">Return type of the operation</typeparam>    /// <param name="operation">Async operation to retry</param>    /// <param name="maxRetries">Maximum number of retry attempts</param>    /// <param name="initialDelay">Initial delay before first retry</param>    /// <param name="backoffMultiplier">Multiplier for delay increase on each retry</param>    /// <param name="cancellationToken">Cancellation token</param>    /// <returns>Result of successful operation</returns>    /// <example>    /// var result = await RetryUtils.RetryWithBackoffAsync(async ct =>    /// {    ///     return await httpClient.GetStringAsync("https://api.example.com/data", ct);    /// }, maxRetries: 3, initialDelay: TimeSpan.FromSeconds(1), backoffMultiplier: 2.0, cancellationToken);    /// </example>    public static async Task<T> RetryWithBackoffAsync<T>(        Func<CancellationToken, Task<T>> operation,        int maxRetries = 3,        TimeSpan? initialDelay = null,        double backoffMultiplier = 2.0,        CancellationToken cancellationToken = default)    {        var delay = initialDelay ?? TimeSpan.FromSeconds(1);        Exception? lastException = null;        for (int attempt = 0; attempt <= maxRetries; attempt++)        {            try            {                cancellationToken.ThrowIfCancellationRequested();                return await operation(cancellationToken);            }            catch (OperationCanceledException)            {                throw;            }            catch (Exception ex)            {                lastException = ex;                if (attempt == maxRetries)                    break;                await Task.Delay(delay, cancellationToken);                delay = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * backoffMultiplier);            }        }        throw new AggregateException($"Operation failed after {maxRetries + 1} attempts", lastException!);    }    /// <summary>    /// Simple retry strategy with fixed delay and conditional retry logic.    /// Provides straightforward retry mechanism with customizable retry conditions.    /// </summary>    /// <typeparam name="T">Return type of the operation</typeparam>    /// <param name="operation">Async operation to retry</param>    /// <param name="maxRetries">Maximum number of retry attempts</param>    /// <param name="delay">Fixed delay between retries</param>    /// <param name="shouldRetry">Optional predicate to determine if exception should trigger retry</param>    /// <returns>Result of successful operation</returns>    /// <example>    /// var result = await RetryUtils.RetryAsync(    ///     async () => await apiClient.GetDataAsync(),    ///     maxRetries: 3,    ///     delay: TimeSpan.FromSeconds(2),    ///     shouldRetry: ex => ex is HttpRequestException);    /// </example>    public static async Task<T> RetryAsync<T>(        Func<Task<T>> operation,        int maxRetries = 3,        TimeSpan? delay = null,        Func<Exception, bool>? shouldRetry = null)    {        var actualDelay = delay ?? TimeSpan.FromSeconds(1);        Exception? lastException = null;        for (int attempt = 0; attempt <= maxRetries; attempt++)        {            try            {                return await operation();            }            catch (Exception ex)            {                lastException = ex;                if (attempt == maxRetries)                    break;                // Check if should retry                if (shouldRetry != null && !shouldRetry(ex))                    break;                if (delay.HasValue)                    await Task.Delay(actualDelay);            }        }        throw new AggregateException($"Operation failed after {maxRetries + 1} attempts", lastException!);    }    /// <summary>    /// Retry strategy for void operations (no return value).    /// Wraps void operations to work with the generic retry mechanism.    /// </summary>    /// <param name="operation">Async void operation to retry</param>    /// <param name="maxRetries">Maximum number of retry attempts</param>    /// <param name="delay">Fixed delay between retries</param>    /// <param name="shouldRetry">Optional predicate to determine if exception should trigger retry</param>    /// <returns>Task representing the operation completion</returns>    /// <example>    /// await RetryUtils.RetryAsync(    ///     async () => await cache.ClearAsync(),    ///     maxRetries: 2,    ///     delay: TimeSpan.FromSeconds(1));    /// </example>    public static async Task RetryAsync(        Func<Task> operation,        int maxRetries = 3,        TimeSpan? delay = null,        Func<Exception, bool>? shouldRetry = null)    {        await RetryAsync(async () =>        {            await operation();            return true; // Dummy return value        }, maxRetries, delay, shouldRetry);    }    /// <summary>    /// Conditional retry judgment for common network-related errors.    /// Determines if an exception represents a transient network failure worth retrying.    /// </summary>    /// <param name="ex">Exception to evaluate</param>    /// <returns>True if the exception indicates a retryable network error</returns>    /// <example>    /// var shouldRetry = RetryUtils.ShouldRetryOnNetworkError(exception);    /// if (shouldRetry) {    ///     // Implement retry logic    /// }    /// </example>    public static bool ShouldRetryOnNetworkError(Exception ex)    {        return ex is HttpRequestException ||               ex is TaskCanceledException ||               ex is TimeoutException ||               (ex.Message?.Contains("timeout", StringComparison.OrdinalIgnoreCase) ?? false) ||               (ex.Message?.Contains("network", StringComparison.OrdinalIgnoreCase) ?? false);    }    /// <summary>    /// Conditional retry judgment for Playwright-related errors.    /// Identifies browser and page lifecycle errors that are typically retryable.    /// </summary>    /// <param name="ex">Exception to evaluate</param>    /// <returns>True if the exception indicates a retryable Playwright error</returns>    /// <example>    /// var shouldRetry = RetryUtils.ShouldRetryOnPlaywrightError(exception);    /// if (shouldRetry) {    ///     // Recreate browser context and retry    /// }    /// </example>    public static bool ShouldRetryOnPlaywrightError(Exception ex)    {        return ShouldRetryOnNetworkError(ex) ||               (ex.Message?.Contains("Target page", StringComparison.OrdinalIgnoreCase) ?? false) ||               (ex.Message?.Contains("Browser has been closed", StringComparison.OrdinalIgnoreCase) ?? false) ||               (ex.Message?.Contains("Context or page has been closed", StringComparison.OrdinalIgnoreCase) ?? false);    }}

@@ -29,6 +29,14 @@ packages/
 *.iml
 
 # ======================
+# Storage State Files (Anti-Cloudflare)
+# ======================
+# Contains sensitive cookies/sessions - DO NOT COMMIT
+**/AntiCloudflare/storageState.json
+**/storageState.json
+ScraperBackendService/AntiCloudflare/storageState.json
+
+# ======================
 # Python
 # ======================
 __pycache__/

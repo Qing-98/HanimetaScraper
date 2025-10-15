@@ -1,42 +1,1 @@
-using System.Collections.Concurrent;
-
-namespace ScraperBackendService.Core.Util;
-
-public static class OrderedAsync
-{
-    /// <summary>
-    /// Execute tasks concurrently while maintaining result order.
-    /// </summary>
-    public static async Task<List<TOut>> ForEachAsync<TIn, TOut>(
-        IReadOnlyList<TIn> items,
-        int degree,
-        Func<TIn, Task<TOut?>> taskFactory)
-    {
-        var results = new TOut?[items.Count];
-        var indexBag = new ConcurrentQueue<int>(Enumerable.Range(0, items.Count));
-        var workers = new List<Task>();
-
-        for (int w = 0; w < degree; w++)
-        {
-            workers.Add(Task.Run(async () =>
-            {
-                while (indexBag.TryDequeue(out var idx))
-                {
-                    try
-                    {
-                        var output = await taskFactory(items[idx]);
-                        results[idx] = output;
-                    }
-                    catch
-                    {
-                        results[idx] = default;
-                    }
-                }
-            }));
-        }
-
-        await Task.WhenAll(workers);
-
-        return results.Where(r => r is not null).Select(r => r!).ToList();
-    }
-}
+using System.Collections.Concurrent;namespace ScraperBackendService.Core.Util;/// <summary>/// Ordered asynchronous execution utilities for maintaining result order during concurrent processing./// Provides methods for executing multiple tasks concurrently while preserving the original sequence order./// </summary>public static class OrderedAsync{    /// <summary>    /// Execute tasks concurrently while maintaining result order.    /// Processes items in parallel with specified concurrency degree and returns results in original order.    /// </summary>    /// <typeparam name="TIn">Input item type</typeparam>    /// <typeparam name="TOut">Output result type</typeparam>    /// <param name="items">Collection of items to process</param>    /// <param name="degree">Number of concurrent workers to use</param>    /// <param name="taskFactory">Function to create task for each item</param>    /// <returns>List of results in the same order as input items (excluding null results)</returns>    /// <remarks>    /// This method is particularly useful for scenarios where:    /// - You need to process many items concurrently for performance    /// - The original order of results must be preserved    /// - Some tasks may fail and should be excluded from results    /// - You want to limit concurrency to avoid overwhelming resources    /// </remarks>    /// <example>    /// var urls = new[] { "url1", "url2", "url3", "url4" };    /// var results = await OrderedAsync.ForEachAsync(urls, degree: 2, async url =>    /// {    ///     try    ///     {    ///         return await httpClient.GetStringAsync(url);    ///     }    ///     catch    ///     {    ///         return null; // Failed requests will be excluded    ///     }    /// });    /// // Results maintain the original order of successful requests    /// </example>    public static async Task<List<TOut>> ForEachAsync<TIn, TOut>(        IReadOnlyList<TIn> items,        int degree,        Func<TIn, Task<TOut?>> taskFactory)    {        var results = new TOut?[items.Count];        var indexBag = new ConcurrentQueue<int>(Enumerable.Range(0, items.Count));        var workers = new List<Task>();        for (int w = 0; w < degree; w++)        {            workers.Add(Task.Run(async () =>            {                while (indexBag.TryDequeue(out var idx))                {                    try                    {                        var output = await taskFactory(items[idx]);                        results[idx] = output;                    }                    catch                    {                        results[idx] = default;                    }                }            }));        }        await Task.WhenAll(workers);        return results.Where(r => r is not null).Select(r => r!).ToList();    }}

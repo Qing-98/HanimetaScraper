@@ -1,25 +1,1 @@
-using System.Text.RegularExpressions;
-using System.Globalization;
-using ScraperBackendService.Core.Util;
-
-namespace ScraperBackendService.Core.Normalize;
-
-public static class DateTimeNormalizer
-{
-    /// <summary>
-    /// Parse Japanese date format: yyyy年M月d日
-    /// </summary>
-    public static DateTimeOffset? ParseJapaneseYmd(string? s)
-        => ScrapingUtils.ParseJapaneseDate(s);
-
-    public static DateTimeOffset? ParseIsoYmd(string? s)
-        => DateTimeOffset.TryParse(s, out var dt) ? dt : null;
-
-    public static TimeSpan? ParseDuration(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return null;
-        if (TimeSpan.TryParse(s, out var ts)) return ts;        // "24:00"
-        var m = Regex.Match(s, @"(\d{1,3})\s*min", RegexOptions.IgnoreCase);
-        return m.Success ? TimeSpan.FromMinutes(int.Parse(m.Groups[1].Value)) : null;
-    }
-}
+using System.Text.RegularExpressions;using System.Globalization;using ScraperBackendService.Core.Util;namespace ScraperBackendService.Core.Normalize;/// <summary>/// Date and time normalization utilities for parsing various date formats./// Provides specialized parsing for Japanese date formats and duration strings./// </summary>public static class DateTimeNormalizer{    /// <summary>    /// Parse Japanese date format: yyyy年M月d日    /// Handles common Japanese date representations used in content metadata.    /// </summary>    /// <param name="s">Japanese date string to parse</param>    /// <returns>Parsed DateTimeOffset or null if parsing fails</returns>    /// <example>    /// var date = ParseJapaneseYmd("2024年3月15日");    /// // Returns: DateTimeOffset representing March 15, 2024    ///     /// var date2 = ParseJapaneseYmd("2023年12月1日");    /// // Returns: DateTimeOffset representing December 1, 2023    /// </example>    public static DateTimeOffset? ParseJapaneseYmd(string? s)        => ScrapingUtils.ParseJapaneseDate(s);    /// <summary>    /// Parse ISO date format strings using standard .NET parsing.    /// Handles various ISO 8601 date and datetime formats.    /// </summary>    /// <param name="s">ISO date string to parse</param>    /// <returns>Parsed DateTimeOffset or null if parsing fails</returns>    /// <example>    /// var date = ParseIsoYmd("2024-03-15");    /// // Returns: DateTimeOffset representing March 15, 2024    ///     /// var datetime = ParseIsoYmd("2024-03-15T14:30:00Z");    /// // Returns: DateTimeOffset with time information    /// </example>    public static DateTimeOffset? ParseIsoYmd(string? s)        => DateTimeOffset.TryParse(s, out var dt) ? dt : null;    /// <summary>    /// Parse duration strings in various formats.    /// Supports standard TimeSpan format and minute-based duration strings.    /// </summary>    /// <param name="s">Duration string to parse</param>    /// <returns>Parsed TimeSpan or null if parsing fails</returns>    /// <example>    /// var duration1 = ParseDuration("24:30");    /// // Returns: TimeSpan representing 24 hours and 30 minutes    ///     /// var duration2 = ParseDuration("90 min");    /// // Returns: TimeSpan representing 90 minutes    ///     /// var duration3 = ParseDuration("120min");    /// // Returns: TimeSpan representing 120 minutes    /// </example>    public static TimeSpan? ParseDuration(string? s)    {        if (string.IsNullOrWhiteSpace(s)) return null;        // Try standard TimeSpan parsing first        if (TimeSpan.TryParse(s, out var ts)) return ts;        // Parse minute-based format: "90 min", "120min", etc.        var m = Regex.Match(s, @"(\d{1,3})\s*min", RegexOptions.IgnoreCase);        return m.Success ? TimeSpan.FromMinutes(int.Parse(m.Groups[1].Value)) : null;    }}

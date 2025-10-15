@@ -39,11 +39,19 @@ namespace Jellyfin.Plugin.Hanimeta.Common.Client
             this.apiPath = apiPath;
             this.apiToken = apiToken;
 
-            this.httpClient = new HttpClient();
+            this.httpClient = new HttpClient
+            {
+                // Increase timeout to accommodate rate limiting and slow scraping operations
+                // Default ASP.NET timeout is 60s, but with rate limiting (30s) + scraping (30s) we need more
+                Timeout = TimeSpan.FromMinutes(3), // 3 minutes total timeout
+            };
+
             if (!string.IsNullOrWhiteSpace(this.apiToken))
             {
                 this.httpClient.DefaultRequestHeaders.Add("X-API-Token", this.apiToken);
             }
+
+            this.logger.LogDebugIfEnabled($"HTTP client initialized with {this.httpClient.Timeout.TotalSeconds}s timeout for {apiPath}");
         }
 
         /// <summary>
@@ -72,7 +80,7 @@ namespace Jellyfin.Plugin.Hanimeta.Common.Client
         /// <returns>Collection of search results.</returns>
         public async Task<IEnumerable<TSearchResult>> SearchAsync(string title, int maxResults = 10, CancellationToken cancellationToken = default)
         {
-            const int baseDelayMs = 1000; // Start with 1 second
+            const int baseDelayMs = 5000; // Start with 5 second
             const int maxDelayMs = 30000; // Cap at 30 seconds
             int attempt = 0;
 
@@ -245,7 +253,7 @@ namespace Jellyfin.Plugin.Hanimeta.Common.Client
         // Original metadata fetching logic extracted to internal method
         private async Task<TMetadata?> GetMetadataInternalAsync(string id, CancellationToken cancellationToken = default)
         {
-            const int baseDelayMs = 3000; // Start with 3 second
+            const int baseDelayMs = 5000; // Start with 5 second
             const int maxDelayMs = 100000; // Cap at 100 seconds
             int attempt = 0;
 

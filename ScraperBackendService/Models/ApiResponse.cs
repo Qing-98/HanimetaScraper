@@ -1,166 +1,1 @@
-namespace ScraperBackendService.Models;
-
-/// <summary>
-/// Standard API response format for all service endpoints.
-/// Provides consistent response structure with success status, data payload, and error handling.
-/// </summary>
-/// <typeparam name="T">Type of data payload in the response</typeparam>
-/// <example>
-/// Usage examples:
-///
-/// // Successful response with data
-/// var successResponse = ApiResponse&lt;List&lt;HanimeMetadata&gt;&gt;.Ok(searchResults, "Search completed successfully");
-/// // Returns: { "success": true, "data": [...], "message": "Search completed successfully", "timestamp": "..." }
-///
-/// // Error response
-/// var errorResponse = ApiResponse&lt;HanimeMetadata&gt;.Fail("Content not found", "The requested ID does not exist");
-/// // Returns: { "success": false, "error": "Content not found", "message": "The requested ID does not exist", "timestamp": "..." }
-///
-/// // Minimal success response
-/// var response = ApiResponse&lt;string&gt;.Ok("Hello World");
-/// // Returns: { "success": true, "data": "Hello World", "timestamp": "..." }
-/// </example>
-public sealed class ApiResponse<T>
-{
-    /// <summary>
-    /// Indicates whether the operation was successful.
-    /// </summary>
-    public bool Success { get; set; }
-
-    /// <summary>
-    /// Response data payload. Present when Success is true.
-    /// </summary>
-    public T? Data { get; set; }
-
-    /// <summary>
-    /// Error message. Present when Success is false.
-    /// </summary>
-    public string? Error { get; set; }
-
-    /// <summary>
-    /// Optional additional message for context or details.
-    /// </summary>
-    public string? Message { get; set; }
-
-    /// <summary>
-    /// UTC timestamp when the response was generated.
-    /// </summary>
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// Creates a successful response with data payload.
-    /// </summary>
-    /// <param name="data">Data to include in the response</param>
-    /// <param name="message">Optional success message</param>
-    /// <returns>Successful ApiResponse with provided data</returns>
-    /// <example>
-    /// var metadata = new HanimeMetadata { Title = "Example" };
-    /// var response = ApiResponse&lt;HanimeMetadata&gt;.Ok(metadata, "Metadata retrieved successfully");
-    /// </example>
-    public static ApiResponse<T> Ok(T data, string? message = null) =>
-        new() { Success = true, Data = data, Message = message };
-
-    /// <summary>
-    /// Creates a failed response with error information.
-    /// </summary>
-    /// <param name="error">Error description</param>
-    /// <param name="message">Optional additional error context</param>
-    /// <returns>Failed ApiResponse with error information</returns>
-    /// <example>
-    /// var response = ApiResponse&lt;HanimeMetadata&gt;.Fail("Invalid ID format", "ID must be numeric");
-    /// var response2 = ApiResponse&lt;List&lt;HanimeMetadata&gt;&gt;.Fail("Search timeout");
-    /// </example>
-    public static ApiResponse<T> Fail(string error, string? message = null) =>
-        new() { Success = false, Error = error, Message = message };
-}
-
-/// <summary>
-/// Service information response model.
-/// Provides metadata about the scraper service including version, providers, and authentication status.
-/// </summary>
-/// <example>
-/// Response example:
-/// {
-///   "service": "ScraperBackendService",
-///   "version": "2.0.0",
-///   "providers": ["Hanime", "DLsite"],
-///   "authEnabled": true,
-///   "timestamp": "2024-01-15T10:30:00.000Z"
-/// }
-///
-/// Usage in endpoints:
-/// app.MapGet("/", () => Results.Json(ApiResponse&lt;ServiceInfo&gt;.Ok(new ServiceInfo { AuthEnabled = config.AuthToken != null })));
-/// </example>
-public sealed class ServiceInfo
-{
-    /// <summary>
-    /// Service name identifier.
-    /// </summary>
-    public string Service { get; set; } = "ScraperBackendService";
-
-    /// <summary>
-    /// Current service version.
-    /// </summary>
-    public string Version { get; set; } = "2.0.0";
-
-    /// <summary>
-    /// Available content providers.
-    /// </summary>
-    public string[] Providers { get; set; } = { "Hanime", "DLsite" };
-
-    /// <summary>
-    /// Whether authentication is enabled for API endpoints.
-    /// </summary>
-    public bool AuthEnabled { get; set; }
-
-    /// <summary>
-    /// UTC timestamp when the service info was generated.
-    /// </summary>
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-}
-
-/// <summary>
-/// Search request parameters model.
-/// Encapsulates search criteria for content discovery operations.
-/// </summary>
-/// <example>
-/// Usage examples:
-///
-/// // Basic search
-/// var request = new SearchRequest { Title = "Love", MaxResults = 10 };
-///
-/// // Advanced search with genre filtering
-/// var request2 = new SearchRequest
-/// {
-///     Title = "Romance",
-///     MaxResults = 20,
-///     Genre = "Comedy",
-///     Sort = "Latest"
-/// };
-///
-/// // URL parameter mapping
-/// // GET /api/hanime/search?title=Love&max=10&genre=Romance&sort=Rating
-/// // Maps to: { Title: "Love", MaxResults: 10, Genre: "Romance", Sort: "Rating" }
-/// </example>
-public sealed class SearchRequest
-{
-    /// <summary>
-    /// Search title or keyword.
-    /// </summary>
-    public string Title { get; set; } = "";
-
-    /// <summary>
-    /// Maximum number of results to return. Default is 12.
-    /// </summary>
-    public int MaxResults { get; set; } = 12;
-
-    /// <summary>
-    /// Optional genre filter for narrowing search results.
-    /// </summary>
-    public string? Genre { get; set; }
-
-    /// <summary>
-    /// Optional sort criteria (e.g., "Latest", "Rating", "Popular").
-    /// </summary>
-    public string? Sort { get; set; }
-}
+namespace ScraperBackendService.Models;/// <summary>/// Standard API response format for all service endpoints./// Provides consistent response structure with success status, data payload, and error handling./// </summary>/// <typeparam name="T">Type of data payload in the response</typeparam>/// <example>/// Usage examples:////// // Successful response with data/// var successResponse = ApiResponse&lt;List&lt;HanimeMetadata&gt;&gt;.Ok(searchResults, "Search completed successfully");/// // Returns: { "success": true, "data": [...], "message": "Search completed successfully", "timestamp": "..." }////// // Error response/// var errorResponse = ApiResponse&lt;HanimeMetadata&gt;.Fail("Content not found", "The requested ID does not exist");/// // Returns: { "success": false, "error": "Content not found", "message": "The requested ID does not exist", "timestamp": "..." }////// // Minimal success response/// var response = ApiResponse&lt;string&gt;.Ok("Hello World");/// // Returns: { "success": true, "data": "Hello World", "timestamp": "..." }/// </example>public sealed class ApiResponse<T>{    /// <summary>    /// Indicates whether the operation was successful.    /// </summary>    public bool Success { get; set; }    /// <summary>    /// Response data payload. Present when Success is true.    /// </summary>    public T? Data { get; set; }    /// <summary>    /// Error message. Present when Success is false.    /// </summary>    public string? Error { get; set; }    /// <summary>    /// Optional additional message for context or details.    /// </summary>    public string? Message { get; set; }    /// <summary>    /// UTC timestamp when the response was generated.    /// </summary>    public DateTime Timestamp { get; set; } = DateTime.UtcNow;    /// <summary>    /// Creates a successful response with data payload.    /// </summary>    /// <param name="data">Data to include in the response</param>    /// <param name="message">Optional success message</param>    /// <returns>Successful ApiResponse with provided data</returns>    /// <example>    /// var metadata = new HanimeMetadata { Title = "Example" };    /// var response = ApiResponse&lt;HanimeMetadata&gt;.Ok(metadata, "Metadata retrieved successfully");    /// </example>    public static ApiResponse<T> Ok(T data, string? message = null) =>        new() { Success = true, Data = data, Message = message };    /// <summary>    /// Creates a failed response with error information.    /// </summary>    /// <param name="error">Error description</param>    /// <param name="message">Optional additional error context</param>    /// <returns>Failed ApiResponse with error information</returns>    /// <example>    /// var response = ApiResponse&lt;HanimeMetadata&gt;.Fail("Invalid ID format", "ID must be numeric");    /// var response2 = ApiResponse&lt;List&lt;HanimeMetadata&gt;&gt;.Fail("Search timeout");    /// </example>    public static ApiResponse<T> Fail(string error, string? message = null) =>        new() { Success = false, Error = error, Message = message };}/// <summary>/// Service information response model./// Provides metadata about the scraper service including version, providers, and authentication status./// </summary>/// <example>/// Response example:/// {///   "service": "ScraperBackendService",///   "version": "2.0.0",///   "providers": ["Hanime", "DLsite"],///   "authEnabled": true,///   "timestamp": "2024-01-15T10:30:00.000Z"/// }////// Usage in endpoints:/// app.MapGet("/", () => Results.Json(ApiResponse&lt;ServiceInfo&gt;.Ok(new ServiceInfo { AuthEnabled = config.AuthToken != null })));/// </example>public sealed class ServiceInfo{    /// <summary>    /// Service name identifier.    /// </summary>    public string Service { get; set; } = "ScraperBackendService";    /// <summary>    /// Current service version.    /// </summary>    public string Version { get; set; } = "2.0.0";    /// <summary>    /// Available content providers.    /// </summary>    public string[] Providers { get; set; } = { "Hanime", "DLsite" };    /// <summary>    /// Whether authentication is enabled for API endpoints.    /// </summary>    public bool AuthEnabled { get; set; }    /// <summary>    /// UTC timestamp when the service info was generated.    /// </summary>    public DateTime Timestamp { get; set; } = DateTime.UtcNow;}/// <summary>/// Search request parameters model./// Encapsulates search criteria for content discovery operations./// </summary>/// <example>/// Usage examples:////// // Basic search/// var request = new SearchRequest { Title = "Love", MaxResults = 10 };////// // Advanced search with genre filtering/// var request2 = new SearchRequest/// {///     Title = "Romance",///     MaxResults = 20,///     Genre = "Comedy",///     Sort = "Latest"/// };////// // URL parameter mapping/// // GET /api/hanime/search?title=Love&max=10&genre=Romance&sort=Rating/// // Maps to: { Title: "Love", MaxResults: 10, Genre: "Romance", Sort: "Rating" }/// </example>public sealed class SearchRequest{    /// <summary>    /// Search title or keyword.    /// </summary>    public string Title { get; set; } = "";    /// <summary>    /// Maximum number of results to return. Default is 12.    /// </summary>    public int MaxResults { get; set; } = 12;    /// <summary>    /// Optional genre filter for narrowing search results.    /// </summary>    public string? Genre { get; set; }    /// <summary>    /// Optional sort criteria (e.g., "Latest", "Rating", "Popular").    /// </summary>    public string? Sort { get; set; }}
