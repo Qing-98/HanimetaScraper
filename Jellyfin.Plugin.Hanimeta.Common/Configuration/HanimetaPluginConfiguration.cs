@@ -1,7 +1,24 @@
+using System.Text.Json.Serialization;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.Hanimeta.Common.Configuration
 {
+    /// <summary>
+    /// Configuration options for tag/genre mapping in Jellyfin.
+    /// </summary>
+    public enum TagMappingMode
+    {
+        /// <summary>
+        /// Map tags to Jellyfin's Tags field.
+        /// </summary>
+        Tags = 0,
+
+        /// <summary>
+        /// Map tags to Jellyfin's Genres field.
+        /// </summary>
+        Genres = 1,
+    }
+
     /// <summary>
     /// Common plugin configuration class for Hanimeta plugins.
     /// </summary>

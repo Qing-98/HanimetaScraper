@@ -39,10 +39,6 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription">Enable detailed logging for troubleshooting</div>
                     </div>
-                </div>
-
-                <div class="verticalSection">
-                    <h2>Tag/Genre Mapping</h2>
 
                     <div class="selectContainer">
                         <select id="selTagMappingMode" is="emby-select" name="selTagMappingMode" label="Tag Mapping Mode:">
@@ -66,23 +62,111 @@
             pluginUniqueId: "d2e313b1-0c08-4a4b-9696-768a06561c3f"
         };
 
+        function debugLog(message, data) {
+            console.log(`[DLsite Config] ${message}`, data || '');
+        }
+
+        function convertTagMappingModeToNumber(value) {
+            debugLog('convertTagMappingModeToNumber input:', { value: value, type: typeof value });
+            
+            // Handle different input types
+            if (typeof value === 'number') {
+                return value;
+            }
+            
+            if (typeof value === 'string') {
+                // Try parsing as number first
+                var numValue = parseInt(value, 10);
+                if (!isNaN(numValue)) {
+                    debugLog('Parsed as number:', numValue);
+                    return numValue;
+                }
+                
+                // Handle enum string names
+                var upperValue = value.toUpperCase();
+                switch (upperValue) {
+                    case 'TAGS':
+                        debugLog('Converted "Tags" to 0');
+                        return 0;
+                    case 'GENRES':
+                        debugLog('Converted "Genres" to 1');
+                        return 1;
+                    default:
+                        debugLog('Unknown string value, defaulting to 0');
+                        return 0;
+                }
+            }
+            
+            debugLog('Unknown type, defaulting to 0');
+            return 0;
+        }
+
+        function setTagMappingValue(selectElement, value) {
+            if (!selectElement) {
+                debugLog('setTagMappingValue: selectElement is null');
+                return false;
+            }
+            
+            debugLog('setTagMappingValue called with:', { value: value, type: typeof value });
+            
+            // Convert to number using the new function
+            var numValue = convertTagMappingModeToNumber(value);
+            
+            // Ensure valid range (0 or 1)
+            numValue = (numValue === 1) ? 1 : 0;
+            var stringValue = numValue.toString();
+            
+            debugLog('Final normalized value:', { numValue: numValue, stringValue: stringValue });
+            
+            // Try multiple approaches to set the value
+            try {
+                // Method 1: Set value directly
+                selectElement.value = stringValue;
+                debugLog('After setting value:', { value: selectElement.value, selectedIndex: selectElement.selectedIndex });
+                
+                // Method 2: Also set selectedIndex as backup
+                for (var i = 0; i < selectElement.options.length; i++) {
+                    if (selectElement.options[i].value === stringValue) {
+                        selectElement.selectedIndex = i;
+                        selectElement.options[i].selected = true;
+                        debugLog('Set selectedIndex to:', i);
+                        break;
+                    }
+                }
+                
+                // Method 3: Force change event
+                var changeEvent = new Event('change', { bubbles: true });
+                selectElement.dispatchEvent(changeEvent);
+                
+                debugLog('Final state:', {
+                    value: selectElement.value,
+                    selectedIndex: selectElement.selectedIndex,
+                    selectedOption: selectElement.selectedIndex >= 0 ? selectElement.options[selectElement.selectedIndex]?.value : 'none'
+                });
+                
+                return selectElement.value === stringValue;
+            } catch (error) {
+                debugLog('Error in setTagMappingValue:', error);
+                return false;
+            }
+        }
+
         document.getElementById('DLsiteScraperConfigurationPage')
             .addEventListener('pageshow', function () {
-                console.log('DLsite Scraper: pageshow event fired');
+                debugLog('pageshow event fired');
                 Dashboard.showLoadingMsg();
                 var page = this;
                 
-                // Add a timeout to prevent indefinite loading
                 var loadTimeout = setTimeout(function() {
-                    console.error('DLsite Scraper: Configuration load timeout');
+                    debugLog('Configuration load timeout');
                     Dashboard.hideLoadingMsg();
                     Dashboard.alert('Configuration load timeout. Please check your plugin installation and restart Jellyfin if necessary.');
-                }, 10000); // 10 second timeout
+                }, 10000);
                 
                 ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
                     try {
                         clearTimeout(loadTimeout);
-                        console.log('DLsite Scraper: Configuration loaded successfully', config);
+                        debugLog('Configuration loaded successfully:', config);
                         
                         var backendUrlInput = page.querySelector('#txtBackendUrl');
                         var apiTokenInput = page.querySelector('#txtApiToken');
@@ -91,74 +175,72 @@
                         
                         if (backendUrlInput) {
                             backendUrlInput.value = config.BackendUrl || 'http://127.0.0.1:8585';
-                            backendUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
-                            console.log('DLsite Scraper: Backend URL set to:', backendUrlInput.value);
+                            debugLog('Backend URL set:', backendUrlInput.value);
                         }
                         
                         if (apiTokenInput) {
                             apiTokenInput.value = config.ApiToken || '';
-                            apiTokenInput.dispatchEvent(new Event('change', { bubbles: true }));
-                            console.log('DLsite Scraper: API Token set');
+                            debugLog('API Token set');
                         }
                         
                         if (enableLoggingCheckbox) {
                             enableLoggingCheckbox.checked = config.EnableLogging || false;
-                            console.log('DLsite Scraper: Enable Logging set to:', enableLoggingCheckbox.checked);
+                            debugLog('Enable Logging set:', enableLoggingCheckbox.checked);
                         }
                         
                         if (tagMappingModeSelect) {
-                            tagMappingModeSelect.value = config.TagMappingMode || 0;
-                            tagMappingModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                            console.log('DLsite Scraper: Tag Mapping Mode set to:', tagMappingModeSelect.value);
+                            debugLog('Raw TagMappingMode from config:', { 
+                                value: config.TagMappingMode, 
+                                type: typeof config.TagMappingMode,
+                                stringified: JSON.stringify(config.TagMappingMode)
+                            });
+                            
+                            // Use setTimeout to ensure DOM is completely ready
+                            setTimeout(function() {
+                                var success = setTagMappingValue(tagMappingModeSelect, config.TagMappingMode);
+                                debugLog('setTagMappingValue result:', success);
+                                
+                                // Double-check the value after a short delay
+                                setTimeout(function() {
+                                    debugLog('Final verification - TagMappingMode select state:', {
+                                        value: tagMappingModeSelect.value,
+                                        selectedIndex: tagMappingModeSelect.selectedIndex,
+                                        optionsCount: tagMappingModeSelect.options.length,
+                                        allOptions: Array.from(tagMappingModeSelect.options).map(function(opt, idx) {
+                                            return { index: idx, value: opt.value, text: opt.text, selected: opt.selected };
+                                        })
+                                    });
+                                }, 200);
+                            }, 50);
                         }
                         
                         Dashboard.hideLoadingMsg();
                     } catch (error) {
                         clearTimeout(loadTimeout);
-                        console.error('DLsite Scraper: Error processing configuration:', error);
+                        debugLog('Error processing configuration:', error);
                         Dashboard.hideLoadingMsg();
-                        Dashboard.alert('Error processing configuration: ' + error.message + '. Please check the browser console for more details.');
+                        Dashboard.alert('Error processing configuration: ' + error.message);
                     }
                 }).catch(function (error) {
                     clearTimeout(loadTimeout);
-                    console.error('DLsite Scraper: Failed to load plugin configuration:', error);
+                    debugLog('Failed to load plugin configuration:', error);
                     Dashboard.hideLoadingMsg();
-                    
-                    // Provide more specific error messages
-                    var errorMessage = 'Failed to load plugin configuration.';
-                    if (error && error.status) {
-                        switch (error.status) {
-                            case 404:
-                                errorMessage = 'Plugin configuration not found. Please ensure the plugin is properly installed and restart Jellyfin.';
-                                break;
-                            case 500:
-                                errorMessage = 'Internal server error while loading configuration. Please check Jellyfin logs.';
-                                break;
-                            case 403:
-                                errorMessage = 'Access denied. Please check your user permissions.';
-                                break;
-                            default:
-                                errorMessage = 'Failed to load configuration (Status: ' + error.status + '). Please try refreshing the page.';
-                        }
-                    }
-                    
-                    Dashboard.alert(errorMessage);
+                    Dashboard.alert('Failed to load plugin configuration. Please try refreshing the page.');
                 });
             });
 
         document.getElementById('DLsiteScraperConfigurationForm')
             .addEventListener('submit', function (e) {
                 e.preventDefault();
-                console.log('DLsite Scraper: Form submit initiated');
+                debugLog('Form submit initiated');
                 Dashboard.showLoadingMsg();
                 var form = this;
                 
-                // Add a timeout to prevent indefinite loading
                 var saveTimeout = setTimeout(function() {
-                    console.error('DLsite Scraper: Configuration save timeout');
+                    debugLog('Configuration save timeout');
                     Dashboard.hideLoadingMsg();
-                    Dashboard.alert('Configuration save timeout. Please check your connection and try again.');
-                }, 10000); // 10 second timeout
+                    Dashboard.alert('Configuration save timeout. Please try again.');
+                }, 10000);
                 
                 ApiClient.getPluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId).then(function (config) {
                     try {
@@ -170,13 +252,21 @@
                         var newBackendUrl = backendUrlInput ? backendUrlInput.value.trim() : 'http://127.0.0.1:8585';
                         var newApiToken = apiTokenInput ? apiTokenInput.value.trim() : '';
                         var newEnableLogging = enableLoggingCheckbox ? enableLoggingCheckbox.checked : false;
-                        var newTagMappingMode = tagMappingModeSelect ? parseInt(tagMappingModeSelect.value) || 0 : 0;
                         
-                        console.log('DLsite Scraper: Saving configuration:', {
+                        var newTagMappingMode = 0;
+                        if (tagMappingModeSelect && tagMappingModeSelect.value !== '') {
+                            var parsed = parseInt(tagMappingModeSelect.value, 10);
+                            newTagMappingMode = isNaN(parsed) ? 0 : parsed;
+                        }
+                        newTagMappingMode = (newTagMappingMode === 1) ? 1 : 0;
+                        
+                        debugLog('Saving configuration:', {
                             BackendUrl: newBackendUrl,
                             ApiToken: newApiToken ? '[REDACTED]' : '',
                             EnableLogging: newEnableLogging,
-                            TagMappingMode: newTagMappingMode
+                            TagMappingMode: newTagMappingMode,
+                            selectValue: tagMappingModeSelect ? tagMappingModeSelect.value : 'null',
+                            selectIndex: tagMappingModeSelect ? tagMappingModeSelect.selectedIndex : 'null'
                         });
                         
                         config.BackendUrl = newBackendUrl;
@@ -184,47 +274,31 @@
                         config.EnableLogging = newEnableLogging;
                         config.TagMappingMode = newTagMappingMode;
                         
+                        debugLog('Final config object before saving:', config);
+                        
                         ApiClient.updatePluginConfiguration(DLsiteScraperPluginConfig.pluginUniqueId, config)
                             .then(function() {
                                 clearTimeout(saveTimeout);
-                                console.log('DLsite Scraper: Configuration saved successfully');
+                                debugLog('Configuration saved successfully');
                                 Dashboard.processPluginConfigurationUpdateResult();
                             })
                             .catch(function(error) {
                                 clearTimeout(saveTimeout);
-                                console.error('DLsite Scraper: Failed to save configuration:', error);
+                                debugLog('Failed to save configuration:', error);
                                 Dashboard.hideLoadingMsg();
-                                
-                                var errorMessage = 'Failed to save configuration.';
-                                if (error && error.status) {
-                                    switch (error.status) {
-                                        case 400:
-                                            errorMessage = 'Invalid configuration data. Please check your input values.';
-                                            break;
-                                        case 500:
-                                            errorMessage = 'Internal server error while saving configuration. Please check Jellyfin logs.';
-                                            break;
-                                        case 403:
-                                            errorMessage = 'Access denied. Please check your user permissions.';
-                                            break;
-                                        default:
-                                            errorMessage = 'Failed to save configuration (Status: ' + error.status + ').';
-                                    }
-                                }
-                                
-                                Dashboard.alert(errorMessage + ' Check the browser console for more details.');
+                                Dashboard.alert('Failed to save configuration: ' + (error.message || 'Unknown error'));
                             });
                     } catch (error) {
                         clearTimeout(saveTimeout);
-                        console.error('DLsite Scraper: Error preparing configuration data:', error);
+                        debugLog('Error preparing configuration data:', error);
                         Dashboard.hideLoadingMsg();
                         Dashboard.alert('Error preparing configuration data: ' + error.message);
                     }
                 }).catch(function (error) {
                     clearTimeout(saveTimeout);
-                    console.error('DLsite Scraper: Failed to load current configuration for saving:', error);
+                    debugLog('Failed to load current configuration for saving:', error);
                     Dashboard.hideLoadingMsg();
-                    Dashboard.alert('Failed to load current configuration for saving. Please try again.');
+                    Dashboard.alert('Failed to load current configuration for saving.');
                 });
                 
                 return false;

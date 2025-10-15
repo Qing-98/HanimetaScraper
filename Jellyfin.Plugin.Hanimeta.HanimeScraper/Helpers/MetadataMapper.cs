@@ -28,7 +28,15 @@ namespace Jellyfin.Plugin.Hanimeta.HanimeScraper.Helpers
         /// <inheritdoc />
         protected override HanimetaPluginConfiguration GetConfiguration()
         {
-            return Plugin.Instance?.Configuration ?? new HanimetaPluginConfiguration();
+            var pluginConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            // Convert to HanimetaPluginConfiguration to satisfy interface
+            return new HanimetaPluginConfiguration
+            {
+                BackendUrl = pluginConfig.BackendUrl,
+                ApiToken = pluginConfig.ApiToken,
+                EnableLogging = pluginConfig.EnableLogging,
+                TagMappingMode = pluginConfig.TagMappingMode
+            };
         }
 
         /// <inheritdoc />
