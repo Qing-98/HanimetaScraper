@@ -39,7 +39,7 @@ jobs:
     
     - name: Install Playwright
       run: |
-        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0
+        dotnet tool install --global Microsoft.Playwright.CLI
         export PATH="$PATH:$HOME/.dotnet/tools"
         playwright install chromium
     
@@ -72,7 +72,7 @@ jobs:
         cat > install-playwright.sh << 'EOF'
         #!/bin/bash
         echo "Installing Playwright browsers..."
-        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0 || true
+        dotnet tool install --global Microsoft.Playwright.CLI || true
         export PATH="$PATH:$HOME/.dotnet/tools"
         playwright install chromium --with-deps
         echo "Playwright installation complete."
@@ -83,7 +83,7 @@ jobs:
         cat > install-playwright.bat << 'EOF'
         @echo off
         echo Installing Playwright browsers...
-        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0
+        dotnet tool install --global Microsoft.Playwright.CLI
         playwright install chromium --with-deps
         echo Playwright installation complete.
         pause
