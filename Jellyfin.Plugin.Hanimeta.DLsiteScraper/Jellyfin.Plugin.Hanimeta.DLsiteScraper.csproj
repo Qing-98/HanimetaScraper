@@ -45,12 +45,13 @@
     <EmbeddedResource Include="Configuration\**\*.html" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server\plugins')">
-    <MakeDir Directories="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" ContinueOnError="WarnAndContinue" />
-    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)$(TargetName).pdb')" ContinueOnError="WarnAndContinue" />
-    <Copy SourceFiles="$(TargetDir)manifest.json" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)manifest.json')" ContinueOnError="WarnAndContinue" />
-    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll')" />
-    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb')" />
-  </Target>
+  <!-- Development: Auto-copy to Jellyfin plugins directory -->
+  <!--<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Debug' And Exists('C:\ProgramData\Jellyfin\Server\plugins')">                                                                                                                              
+    <MakeDir Directories="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" />                                                                                                                                                                            
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" ContinueOnError="WarnAndContinue" />                                                                                                           
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)$(TargetName).pdb')" ContinueOnError="WarnAndContinue" />                                       
+    <Copy SourceFiles="$(TargetDir)manifest.json" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)manifest.json')" ContinueOnError="WarnAndContinue" />                                               
+    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.dll')" ContinueOnError="WarnAndContinue" />   
+    <Copy SourceFiles="$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb" DestinationFolder="C:\ProgramData\Jellyfin\Server\plugins\Jellyfin.Plugin.Hanimeta.DLsiteScraper" Condition="Exists('$(TargetDir)Jellyfin.Plugin.Hanimeta.Common.pdb')" ContinueOnError="WarnAndContinue" />   
+  </Target>-->                                                                                                                                                                                                                                                                      
 </Project>

@@ -1,0 +1,281 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUMBER=${GITHUB_EVENT_INPUTS_VERSION#v}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Install Playwright
+      run: |
+        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        playwright install chromium
+    
+    - name: Build Backend Service
+      run: |
+        cd ScraperBackendService
+        dotnet publish -c Release -f net8.0 --self-contained false -o ../release/backend
+    
+    - name: Build Common Library
+      run: |
+        cd Jellyfin.Plugin.Hanimeta.Common
+        dotnet build -c Release -f net8.0
+    
+    - name: Build DLsite Plugin
+      run: |
+        cd Jellyfin.Plugin.Hanimeta.DLsiteScraper
+        dotnet build -c Release -f net8.0
+    
+    - name: Build Hanime Plugin
+      run: |
+        cd Jellyfin.Plugin.Hanimeta.HanimeScraper
+        dotnet build -c Release -f net8.0
+    
+    - name: Package Backend Service
+      run: |
+        mkdir -p release/packages
+        cd release/backend
+        
+        # Create installation script for Playwright
+        cat > install-playwright.sh << 'EOF'
+        #!/bin/bash
+        echo "Installing Playwright browsers..."
+        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0 || true
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        playwright install chromium --with-deps
+        echo "Playwright installation complete."
+        EOF
+        chmod +x install-playwright.sh
+        
+        # Create Windows Playwright installation script
+        cat > install-playwright.bat << 'EOF'
+        @echo off
+        echo Installing Playwright browsers...
+        dotnet tool install --global Microsoft.Playwright.CLI --version 1.55.0
+        playwright install chromium --with-deps
+        echo Playwright installation complete.
+        pause
+        EOF
+        
+        # Create Linux/macOS startup script
+        cat > start-backend.sh << 'EOF'
+        #!/bin/bash
+        echo "Starting HanimetaScraper Backend Service..."
+        echo "Service will be available at: http://localhost:8585"
+        echo "Press Ctrl+C to stop the service"
+        echo ""
+        dotnet ScraperBackendService.dll
+        EOF
+        chmod +x start-backend.sh
+        
+        # Create Windows startup script
+        cat > start-backend.bat << 'EOF'
+        @echo off
+        echo Starting HanimetaScraper Backend Service...
+        echo Service will be available at: http://localhost:8585
+        echo Press Ctrl+C to stop the service
+        echo.
+        dotnet ScraperBackendService.dll
+        pause
+        EOF
+        
+        # Create Linux/macOS stop script
+        cat > stop-backend.sh << 'EOF'
+        #!/bin/bash
+        echo "Stopping HanimetaScraper Backend Service..."
+        pkill -f "ScraperBackendService.dll" || echo "No backend service process found"
+        echo "Backend service stopped."
+        EOF
+        chmod +x stop-backend.sh
+        
+        # Create Windows stop script
+        cat > stop-backend.bat << 'EOF'
+        @echo off
+        echo Stopping HanimetaScraper Backend Service...
+        taskkill /f /im dotnet.exe /fi "WINDOWTITLE eq ScraperBackendService*" 2>nul || echo No backend service process found
+        echo Backend service stopped.
+        pause
+        EOF
+        
+        # Create comprehensive README for backend service
+        cat > README.md << 'EOF'
+        # HanimetaScraper Backend Service
+        
+        ## Prerequisites
+        - .NET 8 Runtime
+        - Playwright browsers (installed automatically)
+        
+        ## Quick Start
+        
+        ### 1. First Run Setup
+        Before running the backend service for the first time, install Playwright browsers:
+        
+        **Linux/macOS:**
+        ```bash
+        ./install-playwright.sh
+        ```
+        
+        **Windows:**
+        ```batch
+        install-playwright.bat
+        ```
+        
+        ### 2. Start the Service
+        
+        **Linux/macOS:**
+        ```bash
+        ./start-backend.sh
+        ```
+        
+        **Windows:**
+        ```batch
+        start-backend.bat
+        ```
+        
+        ### 3. Stop the Service
+        
+        **Linux/macOS:**
+        ```bash
+        ./stop-backend.sh
+        ```
+        
+        **Windows:**
+        ```batch
+        stop-backend.bat
+        ```
+        
+        Or press `Ctrl+C` in the terminal where the service is running.
+        
+        ## Manual Operation
+        
+        ### Start Manually
+        ```bash
+        dotnet ScraperBackendService.dll
+        ```
+        
+        ### Service Information
+        - **Default Port**: 8585
+        - **Service URL**: http://localhost:8585
+        - **Health Check**: http://localhost:8585/health
+        - **Cache Stats**: http://localhost:8585/cache/stats
+        
+        ## Configuration
+        Edit `appsettings.json` to customize settings:
+        - Port and host binding
+        - Rate limiting and concurrency
+        - Authentication tokens
+        - Playwright options
+        
+        ## Troubleshooting
+        
+        ### Playwright Issues
+        If you encounter browser-related errors:
+        1. Run the Playwright installation script again
+        2. Ensure you have internet connection for browser download
+        3. Check that the browsers were installed successfully:
+           ```bash
+           playwright --version
+           ```
+        
+        ### Service Issues
+        - **Port already in use**: Change the port in `appsettings.json`
+        - **Permission denied**: Run with appropriate permissions
+        - **High memory usage**: Enable aggressive memory optimization in config
+        
+        ### Performance Tips
+        - Increase concurrent slots for high traffic
+        - Adjust rate limiting based on usage patterns
+        - Monitor cache hit rates for optimization
+        
+        ## Logs
+        The service provides structured logging with multiple levels:
+        - **Always visible**: User operations, rate limits, service status
+        - **Information**: Cache operations, internal processes
+        - **Debug**: Slot allocation, memory management, performance metrics
+        EOF
+        
+        zip -r ../packages/ScraperBackendService-${{ steps.version.outputs.VERSION_NUMBER }}.zip .
+    
+    - name: Package DLsite Plugin
+      run: |
+        mkdir -p release/dlsite-plugin
+        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.DLsiteScraper.dll release/dlsite-plugin/
+        cp Jellyfin.Plugin.Hanimeta.Common/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.Common.dll release/dlsite-plugin/
+        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json release/dlsite-plugin/
+        cd release/dlsite-plugin
+        zip -r ../packages/Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip .
+    
+    - name: Package Hanime Plugin
+      run: |
+        mkdir -p release/hanime-plugin
+        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.HanimeScraper.dll release/hanime-plugin/
+        cp Jellyfin.Plugin.Hanimeta.Common/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.Common.dll release/hanime-plugin/
+        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json release/hanime-plugin/
+        cd release/hanime-plugin
+        zip -r ../packages/Jellyfin.Plugin.Hanimeta.HanimeScraper.zip .
+    
+    - name: Generate checksums
+      run: |
+        cd release/packages
+        sha256sum *.zip > checksums.txt
+    
+    - name: Update manifest checksums
+      run: |
+        # Update DLsite manifest
+        DLSITE_CHECKSUM=$(sha256sum release/packages/Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip | cut -d' ' -f1)
+        sed -i "s/sha256-placeholder-checksum-will-be-generated-during-release/sha256-${DLSITE_CHECKSUM}/" Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json
+        
+        # Update Hanime manifest
+        HANIME_CHECKSUM=$(sha256sum release/packages/Jellyfin.Plugin.Hanimeta.HanimeScraper.zip | cut -d' ' -f1)
+        sed -i "s/sha256-placeholder-checksum-will-be-generated-during-release/sha256-${HANIME_CHECKSUM}/" Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json
+        
+        # Copy updated manifests to release
+        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json release/packages/dlsite-manifest.json
+        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json release/packages/hanime-manifest.json
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: Release ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        body_path: RELEASE_NOTES.md
+        files: |
+          release/packages/*.zip
+          release/packages/checksums.txt
+          release/packages/*-manifest.json
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
