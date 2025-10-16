@@ -39,8 +39,19 @@ jobs:
     
     - name: Install Playwright
       run: |
+        # Add Playwright package to a temporary project for CLI access
+        mkdir -p temp-playwright
+        cd temp-playwright
+        dotnet new console
+        dotnet add package Microsoft.Playwright
+        dotnet build
+        cd ..
+        
+        # Install Playwright CLI globally
         dotnet tool install --global Microsoft.Playwright.CLI
         export PATH="$PATH:$HOME/.dotnet/tools"
+        
+        # Install browsers
         playwright install chromium
     
     - name: Build Backend Service
@@ -72,9 +83,25 @@ jobs:
         cat > install-playwright.sh << 'EOF'
         #!/bin/bash
         echo "Installing Playwright browsers..."
-        dotnet tool install --global Microsoft.Playwright.CLI || true
+        
+        # Create temporary project to install Playwright package
+        mkdir -p temp-playwright 2>/dev/null || true
+        cd temp-playwright
+        if [ ! -f "temp-playwright.csproj" ]; then
+            dotnet new console -n temp-playwright 2>/dev/null || true
+            dotnet add package Microsoft.Playwright 2>/dev/null || true
+            dotnet build 2>/dev/null || true
+        fi
+        cd ..
+        
+        # Install Playwright CLI and browsers
+        dotnet tool install --global Microsoft.Playwright.CLI 2>/dev/null || true
         export PATH="$PATH:$HOME/.dotnet/tools"
         playwright install chromium --with-deps
+        
+        # Cleanup
+        rm -rf temp-playwright 2>/dev/null || true
+        
         echo "Playwright installation complete."
         EOF
         chmod +x install-playwright.sh
@@ -83,8 +110,24 @@ jobs:
         cat > install-playwright.bat << 'EOF'
         @echo off
         echo Installing Playwright browsers...
-        dotnet tool install --global Microsoft.Playwright.CLI
+        
+        REM Create temporary project to install Playwright package
+        if not exist temp-playwright mkdir temp-playwright
+        cd temp-playwright
+        if not exist temp-playwright.csproj (
+            dotnet new console -n temp-playwright >nul 2>&1
+            dotnet add package Microsoft.Playwright >nul 2>&1
+            dotnet build >nul 2>&1
+        )
+        cd ..
+        
+        REM Install Playwright CLI and browsers
+        dotnet tool install --global Microsoft.Playwright.CLI >nul 2>&1
         playwright install chromium --with-deps
+        
+        REM Cleanup
+        rmdir /s /q temp-playwright >nul 2>&1
+        
         echo Playwright installation complete.
         pause
         EOF
