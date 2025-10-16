@@ -315,7 +315,44 @@ jobs:
         name: Release ${{ steps.version.outputs.VERSION }}
         draft: false
         prerelease: false
-        body_path: RELEASE_NOTES.md
+        body: |
+          # HanimetaScraper Release ${{ steps.version.outputs.VERSION }}
+          
+          ## 📦 Release Files
+          
+          ### Backend Service
+          - `ScraperBackendService-${{ steps.version.outputs.VERSION_NUMBER }}.zip` - Complete backend service with Playwright support
+          
+          ### Jellyfin Plugins
+          - `Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip` - DLsite metadata scraper plugin
+          - `Jellyfin.Plugin.Hanimeta.HanimeScraper.zip` - Hanime metadata scraper plugin
+          
+          ### Installation Files
+          - `checksums.txt` - SHA256 checksums for verification
+          - Manifest files for plugin installation
+          
+          ## 🚀 Quick Start
+          
+          1. **Download and extract** the backend service zip file
+          2. **Run the Playwright setup** script (first time only):
+             - Linux/macOS: `./install-playwright.sh`
+             - Windows: `install-playwright.bat`
+          3. **Start the backend service**:
+             - Linux/macOS: `./start-backend.sh`
+             - Windows: `start-backend.bat`
+          4. **Install Jellyfin plugins** and configure them to connect to `http://127.0.0.1:8585`
+          
+          
+          ## ⚠️ Requirements
+          
+          - .NET 8 Runtime
+          - Internet connection for Playwright browser installation
+          - Jellyfin 10.10.7 or higher
+          
+          ---
+          
+          **Built with ❤️ for the Jellyfin community**  
+          **Powered by Microsoft Playwright for advanced anti-detection** 🎭
         files: |
           release/packages/*.zip
           release/packages/checksums.txt
