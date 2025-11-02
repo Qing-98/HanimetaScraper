@@ -22,15 +22,15 @@ public static class ScraperLogger
 
         if (identifier != null && itemCount.HasValue)
         {
-            logger.LogInformation("[{Operation}] ✅ {Identifier} -> {ItemCount} items", operation, identifier, itemCount.Value);
+            logger.LogInformation("[{Operation}] {Identifier} -> {ItemCount} items", operation, identifier, itemCount.Value);
         }
         else if (identifier != null)
         {
-            logger.LogInformation("[{Operation}] ✅ {Identifier}", operation, identifier);
+            logger.LogInformation("[{Operation}] {Identifier}", operation, identifier);
         }
         else
         {
-            logger.LogInformation("[{Operation}] ✅ Completed", operation);
+            logger.LogInformation("[{Operation}] Completed", operation);
         }
     }
 
@@ -43,8 +43,8 @@ public static class ScraperLogger
         if (!logger.IsEnabled(LogLevel.Warning)) return;
 
         var message = identifier != null
-            ? "[{Operation}] ⚠️ {Identifier} | {Warning}"
-            : "[{Operation}] ⚠️ {Warning}";
+            ? "[{Operation}] {Identifier} | {Warning}"
+            : "[{Operation}] {Warning}";
 
         if (ex != null)
         {
@@ -78,8 +78,8 @@ public static class ScraperLogger
         if (!logger.IsEnabled(LogLevel.Error)) return;
 
         var message = identifier != null
-            ? "[{Operation}] ❌ {Identifier} | {Error}"
-            : "[{Operation}] ❌ {Error}";
+            ? "[{Operation}] {Identifier} | {Error}"
+            : "[{Operation}] {Error}";
 
         if (ex != null)
         {
@@ -114,8 +114,8 @@ public static class ScraperLogger
         if (!logger.IsEnabled(LogLevel.Debug)) return;
 
         var message = identifier != null
-            ? "[{Operation}] 🔍 {Identifier} | {Info}"
-            : "[{Operation}] 🔍 {Info}";
+            ? "[{Operation}] {Identifier} | {Info}"
+            : "[{Operation}] {Info}";
 
         if (ex != null)
         {
@@ -148,7 +148,7 @@ public static class ScraperLogger
     {
         if (logger.IsEnabled(LogLevel.Warning))
         {
-            logger.LogWarning("[{Operation}] 🚦 Rate limited - Service busy", operation);
+            logger.LogWarning("[{Operation}] Rate limited - Service busy", operation);
         }
     }
 
@@ -222,7 +222,7 @@ public static class ScraperLogger
     {
         if (logger.IsEnabled(LogLevel.Information))
         {
-            logger.LogInformation("[{Operation}] ✅ {Identifier}", operation, identifier);
+            logger.LogInformation("[{Operation}] {Identifier}", operation, identifier);
         }
     }
 
@@ -234,7 +234,7 @@ public static class ScraperLogger
     {
         if (logger.IsEnabled(LogLevel.Warning))
         {
-            logger.LogWarning("[{Operation}] ⚠️ {Identifier} | {Warning}", operation, identifier, warning);
+            logger.LogWarning("[{Operation}] {Identifier} | {Warning}", operation, identifier, warning);
         }
     }
 
@@ -253,8 +253,8 @@ public static class ScraperLogger
         if (logger.IsEnabled(LogLevel.Information))
         {
             var message = identifier != null 
-                ? "[{Operation}] 🚀 Starting | {Identifier}"
-                : "[{Operation}] 🚀 Starting";
+                ? "[{Operation}] Starting | {Identifier}"
+                : "[{Operation}] Starting";
 
             logger.LogInformation(message, operation, identifier);
         }
@@ -289,8 +289,8 @@ public static class ScraperLogger
             if (_logger.IsEnabled(LogLevel.Information))
             {
                 var message = _identifier != null
-                    ? "[{Operation}] ⏱️ Completed | {Identifier} | {Duration}ms"
-                    : "[{Operation}] ⏱️ Completed | {Duration}ms";
+                    ? "[{Operation}] Completed | {Identifier} | {Duration}ms"
+                    : "[{Operation}] Completed | {Duration}ms";
 
                 _logger.LogInformation(message, _operation, _identifier, _stopwatch.ElapsedMilliseconds);
             }

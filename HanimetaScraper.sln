@@ -3,10 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Hanimeta.DLsiteScraper", "Jellyfin.Plugin.Hanimeta.DLsiteScraper\Jellyfin.Plugin.Hanimeta.DLsiteScraper.csproj", "{11111111-1111-1111-1111-111111111111}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Hanimeta.HanimeScraper", "Jellyfin.Plugin.Hanimeta.HanimeScraper\Jellyfin.Plugin.Hanimeta.HanimeScraper.csproj", "{22222222-2222-2222-2222-222222222222}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScraperBackendService", "ScraperBackendService\ScraperBackendService.csproj", "{33333333-3333-3333-3333-333333333333}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewScraperTest", "Test\NewScraperTest\NewScraperTest.csproj", "{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}"
@@ -16,7 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 		todolist.txt = todolist.txt
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Hanimeta.Common", "Jellyfin.Plugin.Hanimeta.Common\Jellyfin.Plugin.Hanimeta.Common.csproj", "{6ABBC35A-C3CD-48A3-4132-4CA06C1BD007}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Hanimeta", "Jellyfin.Plugin.Hanimeta\Jellyfin.Plugin.Hanimeta.csproj", "{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,14 +20,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.Build.0 = Release|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
 		{33333333-3333-3333-3333-333333333333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{33333333-3333-3333-3333-333333333333}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33333333-3333-3333-3333-333333333333}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -39,11 +27,10 @@ Global
 		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Release|Any CPU.ActiveCfg = Debug|Any CPU
-		{2B0B0D5F-F13B-0F73-3AD3-5B477ECF4951}.Release|Any CPU.Build.0 = Debug|Any CPU
-		{6ABBC35A-C3CD-48A3-4132-4CA06C1BD007}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6ABBC35A-C3CD-48A3-4132-4CA06C1BD007}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6ABBC35A-C3CD-48A3-4132-4CA06C1BD007}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6ABBC35A-C3CD-48A3-4132-4CA06C1BD007}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

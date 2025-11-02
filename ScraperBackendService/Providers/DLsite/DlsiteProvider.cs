@@ -25,36 +25,6 @@ namespace ScraperBackendService.Providers.DLsite;
 /// Supports both Maniax and Pro sites with unified search and comprehensive detail extraction.
 /// Implements multi-site fallback strategy and advanced metadata parsing capabilities.
 /// </summary>
-/// <remarks>
-/// This provider handles:
-/// - Unified search across DLsite's movie/video content
-/// - Multi-site detail extraction (Maniax and Pro sites)
-/// - Japanese content with proper text normalization
-/// - Rich metadata including personnel, genres, ratings, and images
-/// - AJAX-based rating extraction for accurate scores
-/// - Proper resource management and error handling
-/// </remarks>
-/// <example>
-/// Usage example:
-/// var provider = new DlsiteProvider(networkClient, logger);
-/// 
-/// // Search for Japanese content
-/// var searchResults = await provider.SearchAsync("恋爱", 10, cancellationToken);
-/// foreach (var hit in searchResults)
-/// {
-///     Console.WriteLine($"Found: {hit.Title} - {hit.DetailUrl}");
-/// }
-/// 
-/// // Get detailed information
-/// var details = await provider.FetchDetailAsync("https://www.dlsite.com/maniax/work/=/product_id/RJ123456.html", cancellationToken);
-/// if (details != null)
-/// {
-///     Console.WriteLine($"Title: {details.Title}");
-///     Console.WriteLine($"Studio: {string.Join(", ", details.Studios)}");
-///     Console.WriteLine($"Rating: {details.Rating}/5");
-///     Console.WriteLine($"Personnel: {details.People.Count} entries");
-/// }
-/// </example>
 public sealed class DlsiteProvider : IMediaProvider
 {
     private readonly INetworkClient _net;
@@ -165,7 +135,7 @@ public sealed class DlsiteProvider : IMediaProvider
         var normalized = TextNormalizer.NormalizeKeyword(keyword);
         var searchUrl = string.Format(CultureInfo.InvariantCulture, UnifiedSearchUrl, Uri.EscapeDataString(normalized));
 
-        var html = await _net.GetHtmlAsync(searchUrl, ct);
+        var html = await _net.GetHtmlAsync(searchUrl, ct).ConfigureAwait(false);
         
         // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
         var doc = new HtmlDocument();
@@ -185,7 +155,9 @@ public sealed class DlsiteProvider : IMediaProvider
             var id = ScrapingUtils.ParseDlsiteIdFromUrl(abs);
             if (string.IsNullOrEmpty(id)) continue;
 
-            var detailUrl = IdParsers.BuildDlsiteDetailUrl(id, preferManiax: true);
+            // Build URL with correct site based on ID prefix (no preference override)
+            // RJ -> Maniax, VJ -> Pro, others use default preference
+            var detailUrl = IdParsers.BuildDlsiteDetailUrl(id, preferManiax: false);
             if (!seen.Add(detailUrl)) continue; // Skip duplicates
 
             string title = a.GetAttributeValue("title", "") ?? "";
@@ -195,14 +167,10 @@ public sealed class DlsiteProvider : IMediaProvider
             if (maxResults > 0 && hits.Count >= maxResults) break;
         }
 
-        // Log search results
+        // Log search results - only log success, no results is handled by ProviderRegistry
         if (hits.Count > 0)
         {
-            _log.LogSuccess("DLsiteSearch", keyword, hits.Count);
-        }
-        else
-        {
-            _log.LogDebug("DLsiteSearch", "No search hits found", keyword);
+            _log.LogSuccessLite("DLsiteSearch", keyword);
         }
 
         return hits;
@@ -252,27 +220,54 @@ public sealed class DlsiteProvider : IMediaProvider
     public async Task<Metadata?> FetchDetailAsync(string detailUrl, CancellationToken ct)
     {
         var id = IdParsers.ParseIdFromDlsiteUrl(detailUrl);
-        string[] candidates = string.IsNullOrEmpty(id)
-            ? new[] { detailUrl }
-            : new[]
-              {
-                  string.Format(CultureInfo.InvariantCulture, ManiaxWorkUrl, id),
-                  string.Format(CultureInfo.InvariantCulture, ProWorkUrl, id)
-              };
+        string[] candidates;
+        
+        if (string.IsNullOrEmpty(id))
+        {
+            candidates = new[] { detailUrl };
+        }
+        else
+        {
+            // Order candidates based on ID prefix to prioritize the correct site
+            if (id.StartsWith("VJ", StringComparison.OrdinalIgnoreCase))
+            {
+                // VJ IDs: try Pro first, then Maniax as fallback
+                candidates = new[]
+                {
+                    string.Format(CultureInfo.InvariantCulture, ProWorkUrl, id),
+                    string.Format(CultureInfo.InvariantCulture, ManiaxWorkUrl, id)
+                };
+            }
+            else if (id.StartsWith("RJ", StringComparison.OrdinalIgnoreCase))
+            {
+                // RJ IDs: try Maniax first, then Pro as fallback
+                candidates = new[]
+                {
+                    string.Format(CultureInfo.InvariantCulture, ManiaxWorkUrl, id),
+                    string.Format(CultureInfo.InvariantCulture, ProWorkUrl, id)
+                };
+            }
+            else
+            {
+                // Unknown prefix: default order (Maniax first)
+                candidates = new[]
+                {
+                    string.Format(CultureInfo.InvariantCulture, ManiaxWorkUrl, id),
+                    string.Format(CultureInfo.InvariantCulture, ProWorkUrl, id)
+                };
+            }
+        }
 
         Exception? last = null;
         foreach (var url in candidates)
         {
             try
             {
-                var meta = await ParseDetailPageAsync(url, ct);
+                var meta = await ParseDetailPageAsync(url, ct).ConfigureAwait(false);
                 if (meta != null) 
                 {
-                    // Ensure the original detailUrl is included in SourceUrls for reference
-                    if (!meta.SourceUrls.Contains(detailUrl))
-                    {
-                        meta.SourceUrls.Add(detailUrl);
-                    }
+                    // Meta already contains the successful URL in SourceUrls from ParseDetailPageAsync
+                    // No need to add anything more - keep it clean and simple
                     return meta;
                 }
             }
@@ -328,7 +323,7 @@ public sealed class DlsiteProvider : IMediaProvider
         var id = IdParsers.ParseIdFromDlsiteUrl(detailUrl);
         if (string.IsNullOrEmpty(id)) return null;
 
-        var html = await _net.GetHtmlAsync(detailUrl, ct);
+        var html = await _net.GetHtmlAsync(detailUrl, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(html)) return null;
 
         // HtmlDocument doesn't implement IDisposable, so we can't use 'using'
@@ -447,7 +442,7 @@ public sealed class DlsiteProvider : IMediaProvider
                 {
                     { "X-Requested-With", "XMLHttpRequest" },
                     { "Referer", detailUrl }
-                }, ct);
+                }, ct).ConfigureAwait(false);
 
             if (json.RootElement.TryGetProperty(id, out var entry)
                 && entry.TryGetProperty("rate_average_2dp", out var v)

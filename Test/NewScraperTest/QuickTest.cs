@@ -138,9 +138,9 @@ public static class QuickTest
             }
 
             // Display genres/tags
-            if (result.Genres.Count > 0)
+            if (result.Tags.Count > 0)
             {
-                Console.WriteLine($"  Tags: {string.Join(", ", result.Genres)}");
+                Console.WriteLine($"  Tags: {string.Join(", ", result.Tags)}");
             }
 
             Console.WriteLine();

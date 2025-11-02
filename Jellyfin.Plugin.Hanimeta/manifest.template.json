@@ -1,0 +1,18 @@
+{
+  "guid": "a4e3f8d2-6c9b-4a1e-b7f5-3e8d9c2a1b4f",
+  "name": "Hanimeta",
+  "description": "Unified metadata provider for Hanime and DLsite content",
+  "overview": "A comprehensive metadata scraper plugin for Hanime and DLsite content, providing rich metadata, images, and external URL integration for Jellyfin media libraries.",
+  "owner": "Qing-98",
+  "category": "Metadata",
+  "imageUrl": "",
+  "targetAbi": "10.10.1.0",
+  "version": "1.2.0.0",
+  "changelog": "Updated unified plugin with compatibility for Jellyfin 10.10.x",
+  "framework": "net9.0",
+  "assemblies": [
+    "Jellyfin.Plugin.Hanimeta.dll"
+  ],
+  "timestamp": "PLACEHOLDER_TIMESTAMP",
+  "checksum": "PLACEHOLDER_CHECKSUM"
+}

@@ -18,6 +18,39 @@ namespace Test.NewScraperTest;
 public static class BackendApiIntegrationTest
 {
     /// <summary>
+    /// Runs all backend API integration tests with default configuration.
+    /// This is the main entry point for running backend API tests.
+    /// </summary>
+    /// <returns>Task representing the asynchronous operation</returns>
+    public static async Task RunTestsAsync()
+    {
+        var backendUrl = "http://localhost:8585";
+        
+        Console.WriteLine("=== Backend API Integration Tests ===");
+        Console.WriteLine($"Testing backend URL: {backendUrl}");
+        Console.WriteLine("Note: Make sure ScraperBackendService is running on the specified URL");
+        
+        try
+        {
+            Console.WriteLine("\n--- Testing Hanime API ---");
+            await TestHanimeApiAsync(backendUrl);
+            
+            Console.WriteLine("\n--- Testing DLsite API ---");
+            await TestDlsiteApiAsync(backendUrl);
+            
+            Console.WriteLine("\n--- Testing Concurrent API Access ---");
+            await TestConcurrentApiAsync(backendUrl, null, 3); // Use smaller count for quick test
+            
+            Console.WriteLine("\n✅ All backend API tests completed successfully!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ API Integration test failed: {ex.Message}");
+            Console.WriteLine("💡 Make sure the ScraperBackendService is running and accessible");
+        }
+    }
+
+    /// <summary>
     /// Tests the Hanime API endpoint by sending a search request.
     /// Validates that the backend service can handle Hanime search requests and return proper responses.
     /// </summary>
@@ -38,18 +71,25 @@ public static class BackendApiIntegrationTest
         var url = $"{backendUrl.TrimEnd('/')}/api/hanime/search?title=Love&max=2";
         Console.WriteLine($"[Integration Test] Request: {url}");
 
-        var response = await client.GetAsync(url);
-        Console.WriteLine($"Status Code: {response.StatusCode}");
+        try
+        {
+            var response = await client.GetAsync(url);
+            Console.WriteLine($"Status Code: {response.StatusCode}");
 
-        if (response.IsSuccessStatusCode)
-        {
-            var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("Response Content:");
-            Console.WriteLine(json);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("Response Content:");
+                Console.WriteLine(json.Length > 500 ? json[..500] + "..." : json);
+            }
+            else
+            {
+                Console.WriteLine("Request Failed: " + await response.Content.ReadAsStringAsync());
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("Request Failed: " + await response.Content.ReadAsStringAsync());
+            Console.WriteLine($"❌ Hanime API request failed: {ex.Message}");
         }
     }
 
@@ -74,18 +114,25 @@ public static class BackendApiIntegrationTest
         var url = $"{backendUrl.TrimEnd('/')}/api/dlsite/search?title=恋爱&max=2";
         Console.WriteLine($"[Integration Test] Request: {url}");
 
-        var response = await client.GetAsync(url);
-        Console.WriteLine($"Status Code: {response.StatusCode}");
+        try
+        {
+            var response = await client.GetAsync(url);
+            Console.WriteLine($"Status Code: {response.StatusCode}");
 
-        if (response.IsSuccessStatusCode)
-        {
-            var json = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("Response Content:");
-            Console.WriteLine(json);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("Response Content:");
+                Console.WriteLine(json.Length > 500 ? json[..500] + "..." : json);
+            }
+            else
+            {
+                Console.WriteLine("Request Failed: " + await response.Content.ReadAsStringAsync());
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("Request Failed: " + await response.Content.ReadAsStringAsync());
+            Console.WriteLine($"❌ DLsite API request failed: {ex.Message}");
         }
     }
 
@@ -118,15 +165,22 @@ public static class BackendApiIntegrationTest
 
         Console.WriteLine($"[Concurrent Test] Launching {concurrentCount} Hanime and {concurrentCount} DLsite requests simultaneously...");
 
-        // Create concurrent tasks for both providers
-        for (int i = 0; i < concurrentCount; i++)
+        try
         {
-            tasks.Add(CreateRequestTask(client, hanimeUrl, "Hanime"));
-            tasks.Add(CreateRequestTask(client, dlsiteUrl, "DLsite"));
-        }
+            // Create concurrent tasks for both providers
+            for (int i = 0; i < concurrentCount; i++)
+            {
+                tasks.Add(CreateRequestTask(client, hanimeUrl, "Hanime"));
+                tasks.Add(CreateRequestTask(client, dlsiteUrl, "DLsite"));
+            }
 
-        await Task.WhenAll(tasks);
-        Console.WriteLine("[Concurrent Test] All requests completed.");
+            await Task.WhenAll(tasks);
+            Console.WriteLine("[Concurrent Test] All requests completed.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Concurrent test failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -142,6 +196,7 @@ public static class BackendApiIntegrationTest
     private static HttpClient CreateHttpClient(string? token = null)
     {
         var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(30); // Set reasonable timeout
         if (!string.IsNullOrWhiteSpace(token))
         {
             client.DefaultRequestHeaders.Add("X-API-Token", token);

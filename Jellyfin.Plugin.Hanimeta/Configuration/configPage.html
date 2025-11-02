@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Hanimeta Metadata Provider</title>
+</head>
+
+<body>
+<div id="HanimetaConfigurationPage" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox,emby-linkbutton" data-role="page">
+    <div data-role="content">
+        <div class="content-primary">
+
+            <h1>Hanimeta Metadata Provider</h1>
+
+            <div class="readOnlyContent">
+                <p class="description1">Unified metadata provider for Hanime and DLsite content.</p>
+            </div>
+
+            <form id="HanimetaConfigurationForm">
+
+                <div class="verticalSection">
+                    <h2>General Settings</h2>
+
+                    <div class="inputContainer">
+                        <input id="txtBackendUrl" is="emby-input" name="txtBackendUrl" pattern="^https?://.+$" required
+                               type="text" label="Backend URL:"/>
+                        <div class="fieldDescription">URL of the scraper backend service (e.g. http://127.0.0.1:8585)</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <input id="txtApiToken" is="emby-input" name="txtApiToken" type="text" label="API Token:"/>
+                        <div class="fieldDescription">Optional API token for authentication with the backend service</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="chkEnableLogging" is="emby-checkbox" name="chkEnableLogging" type="checkbox"/>
+                            <span>Enable Logging</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">Enable detailed logging for troubleshooting</div>
+                    </div>
+
+                    <div class="selectContainer">
+                        <select id="selTagMappingMode" is="emby-select" name="selTagMappingMode" label="Tag Mapping Mode:">
+                            <option value="0">Tags (Default)</option>
+                            <option value="1">Genres</option>
+                        </select>
+                        <div class="fieldDescription">Choose how content tags should be mapped in Jellyfin. Tags includes both content tags and series information. Series data is always included regardless of this setting.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <button class="raised button-submit block" is="emby-button" type="submit">
+                        <span>Save</span></button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+    <script type="text/javascript">
+        var HanimetaPluginConfig = {
+            pluginUniqueId: "a4e3f8d2-6c9b-4a1e-b7f5-3e8d9c2a1b4f"
+        };
+
+        function debugLog(message, data) {
+            // Redact sensitive information before logging
+            var safeData = data;
+            if (data && typeof data === 'object') {
+                safeData = JSON.parse(JSON.stringify(data));
+                // Redact API token to prevent exposure in browser console
+                if (safeData.ApiToken !== undefined) {
+                    safeData.ApiToken = safeData.ApiToken ? '[REDACTED]' : '';
+                }
+            }
+            console.log(`[Hanimeta Config] ${message}`, safeData || '');
+        }
+
+        function convertTagMappingModeToNumber(value) {
+            debugLog('convertTagMappingModeToNumber input:', { value: value, type: typeof value });
+            
+            // Handle different input types
+            if (typeof value === 'number') {
+                return value;
+            }
+            
+            if (typeof value === 'string') {
+                // Try parsing as number first
+                var numValue = parseInt(value, 10);
+                if (!isNaN(numValue)) {
+                    debugLog('Parsed as number:', numValue);
+                    return numValue;
+                }
+                
+                // Handle enum string names
+                var upperValue = value.toUpperCase();
+                switch (upperValue) {
+                    case 'TAGS':
+                        debugLog('Converted "Tags" to 0');
+                        return 0;
+                    case 'GENRES':
+                        debugLog('Converted "Genres" to 1');
+                        return 1;
+                    default:
+                        debugLog('Unknown string value, defaulting to 0');
+                        return 0;
+                }
+            }
+            
+            debugLog('Unknown type, defaulting to 0');
+            return 0;
+        }
+
+        function setTagMappingValue(selectElement, value) {
+            if (!selectElement) {
+                debugLog('setTagMappingValue: selectElement is null');
+                return false;
+            }
+            
+            debugLog('setTagMappingValue called with:', { value: value, type: typeof value });
+            
+            // Convert to number using the new function
+            var numValue = convertTagMappingModeToNumber(value);
+            
+            // Ensure valid range (0 or 1)
+            numValue = (numValue === 1) ? 1 : 0;
+            var stringValue = numValue.toString();
+            
+            debugLog('Final normalized value:', { numValue: numValue, stringValue: stringValue });
+            
+            // Try multiple approaches to set the value
+            try {
+                // Method 1: Set value directly
+                selectElement.value = stringValue;
+                debugLog('After setting value:', { value: selectElement.value, selectedIndex: selectElement.selectedIndex });
+                
+                // Method 2: Also set selectedIndex as backup
+                for (var i = 0; i < selectElement.options.length; i++) {
+                    if (selectElement.options[i].value === stringValue) {
+                        selectElement.selectedIndex = i;
+                        selectElement.options[i].selected = true;
+                        debugLog('Set selectedIndex to:', i);
+                        break;
+                    }
+                }
+                
+                // Method 3: Force change event
+                var changeEvent = new Event('change', { bubbles: true });
+                selectElement.dispatchEvent(changeEvent);
+                
+                debugLog('Final state:', {
+                    value: selectElement.value,
+                    selectedIndex: selectElement.selectedIndex,
+                    selectedOption: selectElement.selectedIndex >= 0 ? selectElement.options[selectElement.selectedIndex]?.value : 'none'
+                });
+                
+                return selectElement.value === stringValue;
+            } catch (error) {
+                debugLog('Error in setTagMappingValue:', error);
+                return false;
+            }
+        }
+
+        document.getElementById('HanimetaConfigurationPage')
+            .addEventListener('pageshow', function () {
+                debugLog('pageshow event fired');
+                Dashboard.showLoadingMsg();
+                var page = this;
+                
+                var loadTimeout = setTimeout(function() {
+                    debugLog('Configuration load timeout');
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Configuration load timeout. Please check your plugin installation and restart Jellyfin if necessary.');
+                }, 10000);
+                
+                ApiClient.getPluginConfiguration(HanimetaPluginConfig.pluginUniqueId).then(function (config) {
+                    try {
+                        clearTimeout(loadTimeout);
+                        debugLog('Configuration loaded successfully:', config);
+                        
+                        var backendUrlInput = page.querySelector('#txtBackendUrl');
+                        var apiTokenInput = page.querySelector('#txtApiToken');
+                        var enableLoggingCheckbox = page.querySelector('#chkEnableLogging');
+                        var tagMappingModeSelect = page.querySelector('#selTagMappingMode');
+                        
+                        if (backendUrlInput) {
+                            backendUrlInput.value = config.BackendUrl || 'http://127.0.0.1:8585';
+                            debugLog('Backend URL set:', backendUrlInput.value);
+                        }
+                        
+                        if (apiTokenInput) {
+                            apiTokenInput.value = config.ApiToken || '';
+                            debugLog('API Token set');
+                        }
+                        
+                        if (enableLoggingCheckbox) {
+                            enableLoggingCheckbox.checked = config.EnableLogging || false;
+                            debugLog('Enable Logging set:', enableLoggingCheckbox.checked);
+                        }
+                        
+                        if (tagMappingModeSelect) {
+                            debugLog('Raw TagMappingMode from config:', { 
+                                value: config.TagMappingMode, 
+                                type: typeof config.TagMappingMode,
+                                stringified: JSON.stringify(config.TagMappingMode)
+                            });
+                            
+                            // Use setTimeout to ensure DOM is completely ready
+                            setTimeout(function() {
+                                var success = setTagMappingValue(tagMappingModeSelect, config.TagMappingMode);
+                                debugLog('setTagMappingValue result:', success);
+                                
+                                // Double-check the value after a short delay
+                                setTimeout(function() {
+                                    debugLog('Final verification - TagMappingMode select state:', {
+                                        value: tagMappingModeSelect.value,
+                                        selectedIndex: tagMappingModeSelect.selectedIndex,
+                                        optionsCount: tagMappingModeSelect.options.length,
+                                        allOptions: Array.from(tagMappingModeSelect.options).map(function(opt, idx) {
+                                            return { index: idx, value: opt.value, text: opt.text, selected: opt.selected };
+                                        })
+                                    });
+                                }, 200);
+                            }, 50);
+                        }
+                        
+                        Dashboard.hideLoadingMsg();
+                    } catch (error) {
+                        clearTimeout(loadTimeout);
+                        debugLog('Error processing configuration:', error);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Error processing configuration: ' + error.message);
+                    }
+                }).catch(function (error) {
+                    clearTimeout(loadTimeout);
+                    debugLog('Failed to load plugin configuration:', error);
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Failed to load plugin configuration. Please try refreshing the page.');
+                });
+            });
+
+        document.getElementById('HanimetaConfigurationForm')
+            .addEventListener('submit', function (e) {
+                e.preventDefault();
+                debugLog('Form submit initiated');
+                Dashboard.showLoadingMsg();
+                var form = this;
+                
+                var saveTimeout = setTimeout(function() {
+                    debugLog('Configuration save timeout');
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Configuration save timeout. Please try again.');
+                }, 10000);
+                
+                ApiClient.getPluginConfiguration(HanimetaPluginConfig.pluginUniqueId).then(function (config) {
+                    try {
+                        var backendUrlInput = form.querySelector('#txtBackendUrl');
+                        var apiTokenInput = form.querySelector('#txtApiToken');
+                        var enableLoggingCheckbox = form.querySelector('#chkEnableLogging');
+                        var tagMappingModeSelect = form.querySelector('#selTagMappingMode');
+                        
+                        var newBackendUrl = backendUrlInput ? backendUrlInput.value.trim() : 'http://127.0.0.1:8585';
+                        var newApiToken = apiTokenInput ? apiTokenInput.value.trim() : '';
+                        var newEnableLogging = enableLoggingCheckbox ? enableLoggingCheckbox.checked : false;
+                        
+                        var newTagMappingMode = 0;
+                        if (tagMappingModeSelect && tagMappingModeSelect.value !== '') {
+                            var parsed = parseInt(tagMappingModeSelect.value, 10);
+                            newTagMappingMode = isNaN(parsed) ? 0 : parsed;
+                        }
+                        newTagMappingMode = (newTagMappingMode === 1) ? 1 : 0;
+                        
+                        debugLog('Saving configuration:', {
+                            BackendUrl: newBackendUrl,
+                            ApiToken: newApiToken ? '[REDACTED]' : '',
+                            EnableLogging: newEnableLogging,
+                            TagMappingMode: newTagMappingMode,
+                            selectValue: tagMappingModeSelect ? tagMappingModeSelect.value : 'null',
+                            selectIndex: tagMappingModeSelect ? tagMappingModeSelect.selectedIndex : 'null'
+                        });
+                        
+                        config.BackendUrl = newBackendUrl;
+                        config.ApiToken = newApiToken;
+                        config.EnableLogging = newEnableLogging;
+                        config.TagMappingMode = newTagMappingMode;
+                        
+                        // Create safe copy for logging (redact token)
+                        var safeConfigForLog = {
+                            BackendUrl: config.BackendUrl,
+                            ApiToken: config.ApiToken ? '[REDACTED]' : '',
+                            EnableLogging: config.EnableLogging,
+                            TagMappingMode: config.TagMappingMode
+                        };
+                        debugLog('Final config object before saving:', safeConfigForLog);
+                        
+                        ApiClient.updatePluginConfiguration(HanimetaPluginConfig.pluginUniqueId, config)
+                            .then(function() {
+                                clearTimeout(saveTimeout);
+                                debugLog('Configuration saved successfully');
+                                Dashboard.processPluginConfigurationUpdateResult();
+                            })
+                            .catch(function(error) {
+                                clearTimeout(saveTimeout);
+                                debugLog('Failed to save configuration:', error);
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Failed to save configuration: ' + (error.message || 'Unknown error'));
+                            });
+                    } catch (error) {
+                        clearTimeout(saveTimeout);
+                        debugLog('Error preparing configuration data:', error);
+                        Dashboard.hideLoadingMsg();
+                        Dashboard.alert('Error preparing configuration data: ' + error.message);
+                    }
+                }).catch(function (error) {
+                    clearTimeout(saveTimeout);
+                    debugLog('Failed to load current configuration for saving:', error);
+                    Dashboard.hideLoadingMsg();
+                    Dashboard.alert('Failed to load current configuration for saving.');
+                });
+                
+                return false;
+            });
+    </script>
+</div>
+</body>
+</html>

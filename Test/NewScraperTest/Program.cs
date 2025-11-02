@@ -12,27 +12,20 @@ using ScraperBackendService.Core.Util;
 using ScraperBackendService.Models;
 using ScraperBackendService.Providers.DLsite;
 using ScraperBackendService.Providers.Hanime;
-using Test.NewScraperTest;
+
+namespace Test.NewScraperTest;
 
 /// <summary>
 /// Test application for DLsite and Hanime scraper providers using new architecture.
-/// Demonstrates both HTTP and Playwright-based scraping approaches.
+/// Demonstrates both HTTP and Playwright-based scraping approaches with interactive menu.
 /// </summary>
-/// <example>
-/// Usage examples:
-/// - Run full test: Choose option 1 to test both DLsite (HTTP) and Hanime (Playwright)
-/// - Run DLsite only: Choose option 2 for HTTP-based scraping
-/// - Run Hanime only: Choose option 3 for Playwright-based scraping
-/// - Integration test: Choose option 4 to test backend API endpoints
-/// - Concurrent test: Choose option 5 to test multiple simultaneous API requests
-/// </example>
 class Program
 {
     /// <summary>
     /// Main entry point for the test application.
     /// Provides interactive menu for different test scenarios.
     /// </summary>
-    /// <param name="args">Command line arguments (not used)</param>
+    /// <param name="args">Command line arguments for direct test execution</param>
     /// <returns>Task representing the asynchronous operation</returns>
     static async Task Main(string[] args)
     {
@@ -43,6 +36,19 @@ class Program
         using var loggerFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Information));
 
+        // Check if specific test is requested via command line
+        if (args.Length > 0)
+        {
+            switch (args[0])
+            {
+                case "sourceurl-test":
+                    await DlsiteSourceUrlTest.RunTestAsync();
+                    return;
+                case "tag-test":
+                    await DlsiteTagTest.RunTestAsync();
+                    return;
+            }
+        }
         // Display interactive menu for test selection
         DisplayTestMenu();
         var choice = Console.ReadLine();
@@ -64,6 +70,12 @@ class Program
             case "5":
                 await RunConcurrentTestAsync();
                 break;
+            case "6":
+                await DlsiteSourceUrlTest.RunTestAsync();
+                break;
+            case "7":
+                await DlsiteTagTest.RunTestAsync();
+                break;
             default:
                 Console.WriteLine("Invalid choice, running full test...");
                 await RunFullTestAsync(loggerFactory);
@@ -84,9 +96,11 @@ class Program
         Console.WriteLine("1. Full test (DLsite + Hanime)");
         Console.WriteLine("2. DLsite only test (HTTP)");
         Console.WriteLine("3. Hanime only test (Playwright)");
-        Console.WriteLine("4. Integration test: Simulate Jellyfin frontend accessing backend API");
-        Console.WriteLine("5. Concurrent test: Simulate multiple Jellyfin plugins accessing backend API");
-        Console.Write("Enter choice (1-5): ");
+        Console.WriteLine("4. Backend API integration test");
+        Console.WriteLine("5. Concurrent load test");
+        Console.WriteLine("6. DLsite SourceUrl fix test");
+        Console.WriteLine("7. DLsite Tag extraction test");
+        Console.Write("Enter choice (1-7): ");
     }
 
     /// <summary>
@@ -95,13 +109,11 @@ class Program
     /// </summary>
     /// <param name="loggerFactory">Logger factory for creating loggers</param>
     /// <returns>Task representing the asynchronous operation</returns>
-    /// <example>
-    /// Test cases include:
-    /// - DLsite: Search by filename "恋爱" and by ID "RJ123456"
-    /// - Hanime: Search by filename "Love" and by ID "86994"
-    /// </example>
     private static async Task RunFullTestAsync(ILoggerFactory loggerFactory)
     {
+        Console.WriteLine("🔍 Running Full Test Suite (DLsite + Hanime)");
+        Console.WriteLine("=" + new string('=', 50));
+
         // Initialize Playwright browser for Hanime testing
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(
@@ -141,13 +153,6 @@ class Program
     /// <summary>
     /// Executes a single test case and displays results.
     /// </summary>
-    /// <param name="provider">Provider name (DLsite or Hanime)</param>
-    /// <param name="input">Search input string</param>
-    /// <param name="route">Scraping route (ById, ByFilename, Auto)</param>
-    /// <param name="client">Network client to use</param>
-    /// <param name="loggerFactory">Logger factory</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>Task representing the asynchronous operation</returns>
     private static async Task ExecuteTestCaseAsync(
         string provider,
         string input,
@@ -189,14 +194,10 @@ class Program
     /// Runs DLsite-specific test using HTTP client only.
     /// Tests multiple search terms including Japanese text and product IDs.
     /// </summary>
-    /// <param name="loggerFactory">Logger factory for creating loggers</param>
-    /// <returns>Task representing the asynchronous operation</returns>
-    /// <example>
-    /// Test inputs: "恋爱" (love in Japanese), "RJ01402281", "RJ01464954" (product IDs)
-    /// </example>
     private static async Task RunDLsiteTestAsync(ILoggerFactory loggerFactory)
     {
         Console.WriteLine("🔍 Testing DLsite (HTTP client only)");
+        Console.WriteLine("=" + new string('=', 40));
 
         var httpClient = new HttpNetworkClient(loggerFactory.CreateLogger<HttpNetworkClient>());
         var provider = new DlsiteProvider(httpClient, loggerFactory.CreateLogger<DlsiteProvider>());
@@ -214,16 +215,12 @@ class Program
 
     /// <summary>
     /// Runs Hanime-specific test using Playwright client.
-    /// Tests both text search and ID-based lookup.
+    /// Tests both text search and ID-based lookup with explicit route specification.
     /// </summary>
-    /// <param name="loggerFactory">Logger factory for creating loggers</param>
-    /// <returns>Task representing the asynchronous operation</returns>
-    /// <example>
-    /// Test inputs: "Love" (text search), "86994" (video ID)
-    /// </example>
     private static async Task RunHanimeTestAsync(ILoggerFactory loggerFactory)
     {
         Console.WriteLine("🔍 Testing Hanime (Playwright client)");
+        Console.WriteLine("=" + new string('=', 40));
 
         using var playwright = await Playwright.CreateAsync();
         await using var browser = await playwright.Chromium.LaunchAsync(
@@ -233,24 +230,52 @@ class Program
         var provider = new HanimeProvider(playwrightClient, loggerFactory.CreateLogger<HanimeProvider>());
         var orchestrator = new ScrapeOrchestrator(provider, playwrightClient, loggerFactory.CreateLogger<ScrapeOrchestrator>());
 
-        var testInputs = new[] { "Love", "86994" };
+        // Define test cases with explicit routes
+        var testCases = new[]
+        {
+            ("Love", ScrapeRoute.Auto, "Text search with Auto mode"),
+            ("86994", ScrapeRoute.ById, "ID lookup with explicit ById mode")
+        };
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
 
-        foreach (var input in testInputs)
+        foreach (var (input, route, description) in testCases)
         {
-            await ExecuteSingleProviderTestAsync("Hanime", input, orchestrator, cts.Token);
+            Console.WriteLine($"📝 Test: {description}");
+            Console.WriteLine($"📝 Searching: '{input}' (Route: {route})");
+            var startTime = DateTime.Now;
+
+            try
+            {
+                var results = await orchestrator.FetchAsync(input, route, 2, cts.Token);
+                var elapsed = DateTime.Now - startTime;
+
+                TestDisplayUtils.DisplayTestSummary("Hanime", input, results.Count, elapsed);
+
+                if (results.Count == 0)
+                {
+                    Console.WriteLine("⚠️  No results found");
+                }
+                else
+                {
+                    foreach (var (meta, index) in results.Select((m, i) => (m, i + 1)))
+                    {
+                        TestDisplayUtils.DisplayDetailedMetadata(meta, index);
+                        Console.WriteLine();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TestDisplayUtils.DisplayError($"Hanime search", ex);
+            }
+            Console.WriteLine();
         }
     }
 
     /// <summary>
     /// Executes test for a single provider with given input.
     /// </summary>
-    /// <param name="providerName">Name of the provider being tested</param>
-    /// <param name="input">Search input string</param>
-    /// <param name="orchestrator">Scrape orchestrator instance</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>Task representing the asynchronous operation</returns>
     private static async Task ExecuteSingleProviderTestAsync(
         string providerName,
         string input,
@@ -291,12 +316,11 @@ class Program
     /// Runs integration test by calling backend API endpoints.
     /// Simulates how Jellyfin frontend would interact with the backend service.
     /// </summary>
-    /// <returns>Task representing the asynchronous operation</returns>
-    /// <example>
-    /// Tests both Hanime and DLsite API endpoints with user-provided backend URL and optional token.
-    /// </example>
     private static async Task RunIntegrationTestAsync()
     {
+        Console.WriteLine("🔍 Running Backend API Integration Test");
+        Console.WriteLine("=" + new string('=', 40));
+        
         Console.Write("Please enter backend service URL (e.g., http://localhost:8585): ");
         var backendUrl = Console.ReadLine() ?? "http://localhost:8585";
         Console.Write("Please enter Token (optional, press Enter to skip): ");
@@ -310,13 +334,11 @@ class Program
     /// Runs concurrent test to simulate multiple simultaneous API requests.
     /// Tests system behavior under load from multiple Jellyfin plugin instances.
     /// </summary>
-    /// <returns>Task representing the asynchronous operation</returns>
-    /// <example>
-    /// Sends multiple concurrent requests to both Hanime and DLsite endpoints
-    /// with user-specified concurrency level (default: 5).
-    /// </example>
     private static async Task RunConcurrentTestAsync()
     {
+        Console.WriteLine("🔍 Running Concurrent Load Test");
+        Console.WriteLine("=" + new string('=', 40));
+        
         Console.Write("Please enter backend service URL (e.g., http://localhost:8585): ");
         var backendUrl = Console.ReadLine() ?? "http://localhost:8585";
         Console.Write("Please enter Token (optional, press Enter to skip): ");
@@ -334,18 +356,6 @@ class Program
     /// Creates and tests a specific provider with given parameters.
     /// Factory method for creating provider instances based on provider name.
     /// </summary>
-    /// <param name="providerName">Name of the provider (DLsite or Hanime)</param>
-    /// <param name="input">Search input string</param>
-    /// <param name="route">Scraping route to use</param>
-    /// <param name="client">Network client instance</param>
-    /// <param name="loggerFactory">Logger factory</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>List of scraped metadata results</returns>
-    /// <exception cref="ArgumentException">Thrown when unknown provider name is specified</exception>
-    /// <example>
-    /// var results = await TestProviderAsync("DLsite", "RJ123456", ScrapeRoute.ById, httpClient, loggerFactory, ct);
-    /// var results = await TestProviderAsync("Hanime", "Love", ScrapeRoute.ByFilename, playwrightClient, loggerFactory, ct);
-    /// </example>
     private static async Task<List<Metadata>> TestProviderAsync(
         string providerName,
         string input,

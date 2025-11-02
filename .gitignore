@@ -603,3 +603,9 @@ config/local/
 secrets/
 private/
 
+# Version management - exclude actual manifest from version control
+Jellyfin.Plugin.Hanimeta/manifest.json
+
+# Keep template manifest for reference
+!Jellyfin.Plugin.Hanimeta/manifest.template.json
+

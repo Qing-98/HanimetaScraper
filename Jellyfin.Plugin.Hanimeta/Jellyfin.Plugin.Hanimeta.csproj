@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- Plugin Metadata -->
+  <PropertyGroup>
+    <AssemblyName>Jellyfin.Plugin.Hanimeta</AssemblyName>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
+    <PackageVersion>1.2.0</PackageVersion>
+    <Guid>a4e3f8d2-6c9b-4a1e-b7f5-3e8d9c2a1b4f</Guid>
+    <Description>Unified metadata provider for Hanime and DLsite content</Description>
+    <AssemblyTitle>Hanimeta Unified Plugin for Jellyfin</AssemblyTitle>
+    <AssemblyCompany>Qing-98</AssemblyCompany>
+    <AssemblyProduct>Jellyfin Plugin</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2025</AssemblyCopyright>
+  </PropertyGroup>
+
+  <!-- Embedded Resources -->
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\configPage.html" />
+
+  </ItemGroup>
+
+<!-- Package References -->
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ExternalUrls\" />
+  </ItemGroup>
+
+</Project>

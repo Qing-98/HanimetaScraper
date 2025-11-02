@@ -1,365 +1,400 @@
-name: Release Build
+﻿name: Release
 
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version (e.g., v1.0.0)'
-        required: true
-        default: 'v1.0.0'
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   build-and-release:
+    name: Build and Release
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-    
-    - name: Extract version
-      id: version
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          echo "VERSION_NUMBER=${GITHUB_EVENT_INPUTS_VERSION#v}" >> $GITHUB_OUTPUT
-        else
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-        fi
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Install Playwright
-      run: |
-        # Add Playwright package to a temporary project for CLI access
-        mkdir -p temp-playwright
-        cd temp-playwright
-        dotnet new console
-        dotnet add package Microsoft.Playwright
-        dotnet build
-        cd ..
-        
-        # Install Playwright CLI globally
-        dotnet tool install --global Microsoft.Playwright.CLI
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        
-        # Install browsers
-        playwright install chromium
-    
-    - name: Build Backend Service
-      run: |
-        cd ScraperBackendService
-        dotnet publish -c Release -f net8.0 --self-contained false -o ../release/backend
-    
-    - name: Build Common Library
-      run: |
-        cd Jellyfin.Plugin.Hanimeta.Common
-        dotnet build -c Release -f net8.0
-    
-    - name: Build DLsite Plugin
-      run: |
-        cd Jellyfin.Plugin.Hanimeta.DLsiteScraper
-        dotnet build -c Release -f net8.0
-    
-    - name: Build Hanime Plugin
-      run: |
-        cd Jellyfin.Plugin.Hanimeta.HanimeScraper
-        dotnet build -c Release -f net8.0
-    
-    - name: Package Backend Service
-      run: |
-        mkdir -p release/packages
-        cd release/backend
-        
-        # Create installation script for Playwright
-        cat > install-playwright.sh << 'EOF'
-        #!/bin/bash
-        echo "Installing Playwright browsers..."
-        
-        # Create temporary project to install Playwright package
-        mkdir -p temp-playwright 2>/dev/null || true
-        cd temp-playwright
-        if [ ! -f "temp-playwright.csproj" ]; then
-            dotnet new console -n temp-playwright 2>/dev/null || true
-            dotnet add package Microsoft.Playwright 2>/dev/null || true
-            dotnet build 2>/dev/null || true
-        fi
-        cd ..
-        
-        # Install Playwright CLI and browsers
-        dotnet tool install --global Microsoft.Playwright.CLI 2>/dev/null || true
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        playwright install chromium --with-deps
-        
-        # Cleanup
-        rm -rf temp-playwright 2>/dev/null || true
-        
-        echo "Playwright installation complete."
-        EOF
-        chmod +x install-playwright.sh
-        
-        # Create Windows Playwright installation script
-        cat > install-playwright.bat << 'EOF'
-        @echo off
-        echo Installing Playwright browsers...
-        
-        REM Create temporary project to install Playwright package
-        if not exist temp-playwright mkdir temp-playwright
-        cd temp-playwright
-        if not exist temp-playwright.csproj (
-            dotnet new console -n temp-playwright >nul 2>&1
-            dotnet add package Microsoft.Playwright >nul 2>&1
-            dotnet build >nul 2>&1
-        )
-        cd ..
-        
-        REM Install Playwright CLI and browsers
-        dotnet tool install --global Microsoft.Playwright.CLI >nul 2>&1
-        playwright install chromium --with-deps
-        
-        REM Cleanup
-        rmdir /s /q temp-playwright >nul 2>&1
-        
-        echo Playwright installation complete.
-        pause
-        EOF
-        
-        # Create Linux/macOS startup script
-        cat > start-backend.sh << 'EOF'
-        #!/bin/bash
-        echo "Starting HanimetaScraper Backend Service..."
-        echo "Service will be available at: http://localhost:8585"
-        echo "Press Ctrl+C to stop the service"
-        echo ""
-        dotnet ScraperBackendService.dll
-        EOF
-        chmod +x start-backend.sh
-        
-        # Create Windows startup script
-        cat > start-backend.bat << 'EOF'
-        @echo off
-        echo Starting HanimetaScraper Backend Service...
-        echo Service will be available at: http://localhost:8585
-        echo Press Ctrl+C to stop the service
-        echo.
-        dotnet ScraperBackendService.dll
-        pause
-        EOF
-        
-        # Create Linux/macOS stop script
-        cat > stop-backend.sh << 'EOF'
-        #!/bin/bash
-        echo "Stopping HanimetaScraper Backend Service..."
-        pkill -f "ScraperBackendService.dll" || echo "No backend service process found"
-        echo "Backend service stopped."
-        EOF
-        chmod +x stop-backend.sh
-        
-        # Create Windows stop script
-        cat > stop-backend.bat << 'EOF'
-        @echo off
-        echo Stopping HanimetaScraper Backend Service...
-        taskkill /f /im dotnet.exe /fi "WINDOWTITLE eq ScraperBackendService*" 2>nul || echo No backend service process found
-        echo Backend service stopped.
-        pause
-        EOF
-        
-        # Create comprehensive README for backend service
-        cat > README.md << 'EOF'
-        # HanimetaScraper Backend Service
-        
-        ## Prerequisites
-        - .NET 8 Runtime
-        - Playwright browsers (installed automatically)
-        
-        ## Quick Start
-        
-        ### 1. First Run Setup
-        Before running the backend service for the first time, install Playwright browsers:
-        
-        **Linux/macOS:**
-        ```bash
-        ./install-playwright.sh
-        ```
-        
-        **Windows:**
-        ```batch
-        install-playwright.bat
-        ```
-        
-        ### 2. Start the Service
-        
-        **Linux/macOS:**
-        ```bash
-        ./start-backend.sh
-        ```
-        
-        **Windows:**
-        ```batch
-        start-backend.bat
-        ```
-        
-        ### 3. Stop the Service
-        
-        **Linux/macOS:**
-        ```bash
-        ./stop-backend.sh
-        ```
-        
-        **Windows:**
-        ```batch
-        stop-backend.bat
-        ```
-        
-        Or press `Ctrl+C` in the terminal where the service is running.
-        
-        ## Manual Operation
-        
-        ### Start Manually
-        ```bash
-        dotnet ScraperBackendService.dll
-        ```
-        
-        ### Service Information
-        - **Default Port**: 8585
-        - **Service URL**: http://localhost:8585
-        - **Health Check**: http://localhost:8585/health
-        - **Cache Stats**: http://localhost:8585/cache/stats
-        
-        ## Configuration
-        Edit `appsettings.json` to customize settings:
-        - Port and host binding
-        - Rate limiting and concurrency
-        - Authentication tokens
-        - Playwright options
-        
-        ## Troubleshooting
-        
-        ### Playwright Issues
-        If you encounter browser-related errors:
-        1. Run the Playwright installation script again
-        2. Ensure you have internet connection for browser download
-        3. Check that the browsers were installed successfully:
-           ```bash
-           playwright --version
-           ```
-        
-        ### Service Issues
-        - **Port already in use**: Change the port in `appsettings.json`
-        - **Permission denied**: Run with appropriate permissions
-        - **High memory usage**: Enable aggressive memory optimization in config
-        
-        ### Performance Tips
-        - Increase concurrent slots for high traffic
-        - Adjust rate limiting based on usage patterns
-        - Monitor cache hit rates for optimization
-        
-        ## Logs
-        The service provides structured logging with multiple levels:
-        - **Always visible**: User operations, rate limits, service status
-        - **Information**: Cache operations, internal processes
-        - **Debug**: Slot allocation, memory management, performance metrics
-        EOF
-        
-        zip -r ../packages/ScraperBackendService-${{ steps.version.outputs.VERSION_NUMBER }}.zip .
-    
-    - name: Package DLsite Plugin
-      run: |
-        mkdir -p release/dlsite-plugin
-        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.DLsiteScraper.dll release/dlsite-plugin/
-        cp Jellyfin.Plugin.Hanimeta.Common/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.Common.dll release/dlsite-plugin/
-        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json release/dlsite-plugin/
-        cd release/dlsite-plugin
-        zip -r ../packages/Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip .
-    
-    - name: Package Hanime Plugin
-      run: |
-        mkdir -p release/hanime-plugin
-        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.HanimeScraper.dll release/hanime-plugin/
-        cp Jellyfin.Plugin.Hanimeta.Common/bin/Release/net8.0/Jellyfin.Plugin.Hanimeta.Common.dll release/hanime-plugin/
-        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json release/hanime-plugin/
-        cd release/hanime-plugin
-        zip -r ../packages/Jellyfin.Plugin.Hanimeta.HanimeScraper.zip .
-    
-    - name: Generate checksums
-      run: |
-        cd release/packages
-        sha256sum *.zip > checksums.txt
-    
-    - name: Update manifest checksums
-      run: |
-        # Update DLsite manifest
-        DLSITE_CHECKSUM=$(sha256sum release/packages/Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip | cut -d' ' -f1)
-        sed -i "s/sha256-placeholder-checksum-will-be-generated-during-release/sha256-${DLSITE_CHECKSUM}/" Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json
-        
-        # Update Hanime manifest
-        HANIME_CHECKSUM=$(sha256sum release/packages/Jellyfin.Plugin.Hanimeta.HanimeScraper.zip | cut -d' ' -f1)
-        sed -i "s/sha256-placeholder-checksum-will-be-generated-during-release/sha256-${HANIME_CHECKSUM}/" Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json
-        
-        # Copy updated manifests to release
-        cp Jellyfin.Plugin.Hanimeta.DLsiteScraper/manifest.json release/packages/dlsite-manifest.json
-        cp Jellyfin.Plugin.Hanimeta.HanimeScraper/manifest.json release/packages/hanime-manifest.json
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.version.outputs.VERSION }}
-        name: Release ${{ steps.version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-        body: |
-          # HanimetaScraper Release ${{ steps.version.outputs.VERSION }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # ============================================
+      # Build Plugin (Frontend)
+      # ============================================
+      - name: Build Plugin
+        run: |
+          dotnet build Jellyfin.Plugin.Hanimeta/Jellyfin.Plugin.Hanimeta.csproj \
+            -c Release \
+            -p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Package Plugin
+        run: |
+          cd Jellyfin.Plugin.Hanimeta/bin/Release/net9.0
+          zip -r ../../../../jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip Jellyfin.Plugin.Hanimeta.dll
+
+      # ============================================
+      # Build Backend - Windows
+      # ============================================
+      - name: Build Backend - Windows x64
+        run: |
+          dotnet publish ScraperBackendService/ScraperBackendService.csproj \
+            -c Release \
+            -r win-x64 \
+            --self-contained true \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            -o ./publish/backend-windows-x64
+
+      - name: Add Playwright Scripts - Windows
+        run: |
+          cd publish/backend-windows-x64
           
-          ## 📦 Release Files
+          cat > install-playwright.bat << 'EOFBAT'
+          @echo off
+          echo.
+          echo ================================================
+          echo   Hanimeta Backend - Playwright Installation
+          echo ================================================
+          echo.
+          echo Installing Playwright Chromium browser...
+          echo.
+          pwsh playwright.ps1 install chromium
+          echo.
+          echo ================================================
+          echo   Installation Complete!
+          echo ================================================
+          echo.
+          pause
+          EOFBAT
           
-          ### Backend Service
-          - `ScraperBackendService-${{ steps.version.outputs.VERSION_NUMBER }}.zip` - Complete backend service with Playwright support
+          cat > install-playwright.ps1 << 'EOFPS1'
+          #!/usr/bin/env pwsh
+          Write-Host ""
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host "  Hanimeta Backend - Playwright Installation" -ForegroundColor Cyan
+          Write-Host "================================================" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "Installing Playwright Chromium browser..." -ForegroundColor Yellow
           
-          ### Jellyfin Plugins
-          - `Jellyfin.Plugin.Hanimeta.DLsiteScraper.zip` - DLsite metadata scraper plugin
-          - `Jellyfin.Plugin.Hanimeta.HanimeScraper.zip` - Hanime metadata scraper plugin
+          & "$PSScriptRoot\playwright.ps1" install chromium
           
-          ### Installation Files
-          - `checksums.txt` - SHA256 checksums for verification
-          - Manifest files for plugin installation
+          Write-Host ""
+          Write-Host "================================================" -ForegroundColor Green
+          Write-Host "  Installation Complete!" -ForegroundColor Green
+          Write-Host "================================================" -ForegroundColor Green
+          Write-Host ""
+          EOFPS1
           
-          ## 🚀 Quick Start
+          cat > README.txt << 'EOFREADME'
+          Hanimeta Backend Service - Windows
+          ===================================
           
-          1. **Download and extract** the backend service zip file
-          2. **Run the Playwright setup** script (first time only):
-             - Linux/macOS: `./install-playwright.sh`
-             - Windows: `install-playwright.bat`
-          3. **Start the backend service**:
-             - Linux/macOS: `./start-backend.sh`
-             - Windows: `start-backend.bat`
-          4. **Install Jellyfin plugins** and configure them to connect to `http://127.0.0.1:8585`
+          Installation:
+          1. Run install-playwright.bat to install browser dependencies
+          2. Start ScraperBackendService.exe
+          3. Service will run on http://localhost:5000
           
+          Configuration:
+          - Edit appsettings.json to customize settings
+          - Default port: 5000
           
-          ## ⚠️ Requirements
+          Requirements:
+          - PowerShell 7+ (for Playwright installation)
+          - .NET 9.0 Runtime (included in this self-contained build)
+          EOFREADME
           
-          - .NET 8 Runtime
-          - Internet connection for Playwright browser installation
-          - Jellyfin 10.10.7 or higher
+          zip -r ../../hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip .
+
+      # ============================================
+      # Build Backend - Linux
+      # ============================================
+      - name: Build Backend - Linux x64
+        run: |
+          dotnet publish ScraperBackendService/ScraperBackendService.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            -o ./publish/backend-linux-x64
+
+      - name: Add Playwright Scripts - Linux
+        run: |
+          cd publish/backend-linux-x64
           
-          ---
+          cat > install-playwright.sh << 'EOFSH'
+          #!/bin/bash
+          echo ""
+          echo "================================================"
+          echo "  Hanimeta Backend - Playwright Installation"
+          echo "================================================"
+          echo ""
+          echo "Installing Playwright Chromium browser..."
+          echo ""
           
-          **Built with ❤️ for the Jellyfin community**  
-          **Powered by Microsoft Playwright for advanced anti-detection** 🎭
-        files: |
-          release/packages/*.zip
-          release/packages/checksums.txt
-          release/packages/*-manifest.json
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pwsh playwright.ps1 install chromium
+          
+          echo ""
+          echo "================================================"
+          echo "  Installation Complete!"
+          echo "================================================"
+          echo ""
+          EOFSH
+          
+          chmod +x install-playwright.sh
+          
+          cat > hanimeta-backend.service << 'EOFSVC'
+          [Unit]
+          Description=Hanimeta Scraper Backend Service
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=jellyfin
+          Group=jellyfin
+          WorkingDirectory=/opt/hanimeta-backend
+          ExecStart=/opt/hanimeta-backend/ScraperBackendService
+          Restart=on-failure
+          RestartSec=10
+          
+          # Security settings
+          NoNewPrivileges=true
+          PrivateTmp=true
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOFSVC
+          
+          cat > README.txt << 'EOFREADME'
+          Hanimeta Backend Service - Linux
+          =================================
+          
+          Quick Start:
+          1. Extract: tar -xzf hanimeta-backend-linux-x64-*.tar.gz -C /opt/hanimeta-backend
+          2. Install Playwright: cd /opt/hanimeta-backend && ./install-playwright.sh
+          3. Run: ./ScraperBackendService
+          
+          Install as systemd service:
+          1. sudo cp hanimeta-backend.service /etc/systemd/system/
+          2. sudo systemctl daemon-reload
+          3. sudo systemctl enable hanimeta-backend
+          4. sudo systemctl start hanimeta-backend
+          5. sudo systemctl status hanimeta-backend
+          
+          Configuration:
+          - Edit appsettings.json to customize settings
+          - Default port: 5000
+          
+          Requirements:
+          - PowerShell 7+ (for Playwright installation)
+          - .NET 9.0 Runtime (included in this self-contained build)
+          EOFREADME
+          
+          tar -czf ../../hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz .
+
+      # ============================================
+      # Create Release
+      # ============================================
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.TAG }}
+          draft: true
+          prerelease: false
+          body: |
+            ## 🎉 Hanimeta Release ${{ steps.version.outputs.TAG }}
+            
+            ### 📦 Downloads
+            
+            | Package | Description | File |
+            |---------|-------------|------|
+            | 🔌 **Plugin** | Jellyfin frontend plugin | `jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip` |
+            | 🪟 **Backend (Windows)** | Backend service for Windows | `hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip` |
+            | 🐧 **Backend (Linux)** | Backend service for Linux | `hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz` |
+            
+            ---
+            
+            ### 📝 Release Notes
+            
+            <!-- 
+            ╔════════════════════════════════════════════════════════════╗
+            ║  ✏️  EDIT THIS SECTION BEFORE PUBLISHING THE RELEASE  ✏️  ║
+            ╚════════════════════════════════════════════════════════════╝
+            
+            Add your release notes here. Example format:
+            
+            #### ✨ What's New
+            - Added new feature X
+            - Improved performance of Y
+            
+            #### 🐛 Bug Fixes
+            - Fixed issue with Z
+            - Resolved problem with W
+            
+            #### ⚠️ Breaking Changes
+            - Changed configuration format (migration guide below)
+            
+            #### 📚 Documentation
+            - Updated installation guide
+            - Added troubleshooting section
+            
+            -->
+            
+            **TODO: Add your release notes above this line**
+            
+            ---
+            
+            ### 🚀 Installation
+            
+            #### Plugin Installation
+            1. Download `jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip`
+            2. Extract the DLL to your Jellyfin plugins directory:
+               - Windows: `C:\ProgramData\Jellyfin\Server\plugins\Hanimeta\`
+               - Linux: `/var/lib/jellyfin/plugins/Hanimeta/`
+            3. Restart Jellyfin
+            4. Configure plugin in Jellyfin Dashboard → Plugins → Hanimeta
+            
+            #### Backend Installation
+            
+            **Windows:**
+            ```powershell
+            # Extract the archive
+            Expand-Archive hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip -DestinationPath C:\hanimeta-backend
+            
+            # Install Playwright browsers
+            cd C:\hanimeta-backend
+            .\install-playwright.bat
+            
+            # Start the service
+            .\ScraperBackendService.exe
+            ```
+            
+            **Linux:**
+            ```bash
+            # Extract
+            sudo mkdir -p /opt/hanimeta-backend
+            sudo tar -xzf hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz -C /opt/hanimeta-backend
+            
+            # Install Playwright browsers
+            cd /opt/hanimeta-backend
+            sudo ./install-playwright.sh
+            
+            # Option 1: Run directly
+            ./ScraperBackendService
+            
+            # Option 2: Install as systemd service
+            sudo cp hanimeta-backend.service /etc/systemd/system/
+            sudo systemctl daemon-reload
+            sudo systemctl enable hanimeta-backend
+            sudo systemctl start hanimeta-backend
+            sudo systemctl status hanimeta-backend
+            ```
+            
+            ### 📋 Requirements
+            
+            - **Jellyfin**: 10.10.x or later
+            - **.NET Runtime**: 9.0 (included in self-contained backend builds)
+            - **PowerShell**: 7.0+ (for Playwright installation)
+            - **Operating System**:
+              - Windows: Windows 10/11 or Windows Server 2019+
+              - Linux: Ubuntu 20.04+, Debian 11+, or equivalent
+            
+            ### ⚙️ Configuration
+            
+            **Plugin Configuration** (Jellyfin Dashboard):
+            - Backend API URL (default: `http://localhost:5000`)
+            - Request timeout settings
+            - Provider-specific settings
+            
+            **Backend Configuration** (`appsettings.json`):
+            - Server port (default: 5000)
+            - Rate limiting settings
+            - Cache configuration
+            - Playwright browser settings
+            
+            ### 🔧 Troubleshooting
+            
+            **Plugin can't connect to backend:**
+            - Ensure backend service is running
+            - Check backend URL in plugin configuration
+            - Verify firewall settings allow connections to port 5000
+            
+            **Playwright browser errors:**
+            - Run the install-playwright script again
+            - Check PowerShell 7+ is installed
+            - Ensure sufficient disk space for browser downloads
+            
+            **Performance issues:**
+            - Adjust rate limiting settings in appsettings.json
+            - Increase cache size if needed
+            - Check system resources (CPU, memory)
+            
+            ### 📚 Documentation
+            
+            - [Full Documentation](https://github.com/${{ github.repository }}/blob/main/README.md)
+            - [Configuration Guide](https://github.com/${{ github.repository }}/blob/main/docs/configuration.md)
+            - [Troubleshooting](https://github.com/${{ github.repository }}/blob/main/docs/troubleshooting.md)
+            
+            ---
+            
+            ### 📝 Post-Release Steps
+            
+            **After publishing this release**, update the manifest with release information:
+            
+            ```bash
+            pwsh scripts/update-manifest-from-release.ps1 -ReleaseTag ${{ steps.version.outputs.TAG }}
+            ```
+            
+            This will:
+            - Download the plugin package from GitHub
+            - Calculate the checksum
+            - Update manifest.json with version, timestamp, and checksum
+            - Add this version to the version history (preserving old versions)
+            
+            Then commit and push the updated manifest:
+            ```bash
+            git add Jellyfin.Plugin.Hanimeta/manifest.json
+            git commit -m "Update manifest for release ${{ steps.version.outputs.TAG }} [skip ci]"
+            git push
+            ```
+            
+            ---
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/...
+          files: |
+            jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip
+            hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip
+            hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Summary
+        run: |
+          echo "✅ Release draft created successfully!"
+          echo ""
+          echo "📋 Next Steps:"
+          echo "1. Go to https://github.com/${{ github.repository }}/releases"
+          echo "2. Find the draft release for ${{ steps.version.outputs.TAG }}"
+          echo "3. Edit and add your release notes in the marked section"
+          echo "4. Click 'Publish release'"
+          echo ""
+          echo "5. After publishing, run the manifest update script:"
+          echo "   pwsh scripts/update-manifest-from-release.ps1 -ReleaseTag ${{ steps.version.outputs.TAG }}"
+          echo ""
+          echo "📦 Artifacts created:"
+          echo "   - jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip"
+          echo "   - hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip"
+          echo "   - hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz"
