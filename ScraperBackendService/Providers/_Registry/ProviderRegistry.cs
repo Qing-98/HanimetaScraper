@@ -246,6 +246,8 @@ public static class ProviderRegistry
                     statusCode: 429);
             }
 
+            logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} acquired", parsedId);
+
             // Second cache check: Critical for preventing duplicate scraping
             // While we were waiting for slot, another request may have cached the result
             // This is the "double-checked locking" pattern for concurrent scenarios
@@ -259,7 +261,11 @@ public static class ProviderRegistry
             var waitTime = rateLimiter.GetWaitTime(slot.SlotId);
             if (waitTime > TimeSpan.Zero)
             {
-                logger.LogDebug($"{providerName}Detail", $"Rate limit wait: {waitTime.TotalSeconds:F1}s", parsedId);
+                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} waiting {waitTime.TotalSeconds:F1}s (rate limit)", parsedId);
+            }
+            else
+            {
+                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} no wait needed (first request or interval passed)", parsedId);
             }
 
             await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
@@ -269,8 +275,9 @@ public static class ProviderRegistry
             
             var result = await provider.FetchDetailAsync(detailUrl, ct).ConfigureAwait(false);
 
-            // Record successful rate limit completion after successful fetch
+            // Record rate limit completion after successful fetch to enforce minimum interval
             rateLimiter.RecordRequestComplete(slot.SlotId);
+            logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} request complete, timestamp recorded", parsedId);
 
             cache.SetCached(cacheKey, parsedId, result);
 
@@ -297,6 +304,10 @@ public static class ProviderRegistry
         }
         finally
         {
+            if (slot != null)
+            {
+                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} released", id);
+            }
             slot?.Dispose();
         }
     }

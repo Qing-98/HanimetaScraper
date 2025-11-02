@@ -160,7 +160,8 @@ public static class ProviderRegistrationBuilder
         ConcurrencySlot? slot = null;
         try
         {
-            logger.LogAlways($"{providerName}Search", $"Searching: '{title}'");
+            var maxResults = Math.Min(max ?? 12, 50);
+            logger.LogAlways($"{providerName}Search", $"Searching: '{title}' (max: {maxResults})");
 
             slot = await limiter.TryWaitAndAcquireSlotAsync(15000, ct).ConfigureAwait(false);
             if (slot == null)
@@ -179,34 +180,48 @@ public static class ProviderRegistrationBuilder
 
             await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
 
-            var maxResults = Math.Min(max ?? 12, 50);
             var hits = await provider.SearchAsync(title, maxResults, ct).ConfigureAwait(false);
-            var results = new List<Metadata>();
 
-            var tasks = hits.Take(maxResults).Select(async hit =>
+            // Log search results count
+            if (hits.Count > 0)
             {
-                try
-                {
-                    var detail = await provider.FetchDetailAsync(hit.DetailUrl, ct).ConfigureAwait(false);
-                    if (detail != null)
-                    {
-                        lock (results) results.Add(detail);
-                    }
-                }
-                catch (Exception)
-                {
-                    logger.LogWarningLite("DetailFetch", "Failed", hit.DetailUrl);
-                }
-            });
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-
-            if (results.Count > 0)
-                logger.LogAlways($"{providerName}Search", $"Found {results.Count} results");
+                logger.LogAlways($"{providerName}Search", $"Found {hits.Count} results", title);
+            }
             else
-                logger.LogAlways($"{providerName}Search", "No results found");
+            {
+                logger.LogAlways($"{providerName}Search", "No results found", title);
+                // Record successful rate limit completion even for zero results
+                rateLimiter.RecordRequestComplete(slot.SlotId);
+                return Results.Json(ApiResponse<List<Metadata>>.Ok(new List<Metadata>()));
+            }
 
-            return Results.Json(ApiResponse<List<Metadata>>.Ok(results));
+            // Use OrderedAsync.ForEachAsync to limit concurrent detail fetching to 4 tasks
+            // This prevents overwhelming the target server with too many simultaneous requests
+            var results = await ScraperBackendService.Core.Util.OrderedAsync.ForEachAsync(
+                hits.Take(maxResults).ToList(),
+                degree: 4, // Limit to 4 concurrent detail fetches
+                async hit =>
+                {
+                    try
+                    {
+                        var detail = await provider.FetchDetailAsync(hit.DetailUrl, ct).ConfigureAwait(false);
+                        return detail;
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogWarningLite("DetailFetch", "Failed", hit.DetailUrl);
+                        return null;
+                    }
+                });
+
+            // Record successful rate limit completion
+            rateLimiter.RecordRequestComplete(slot.SlotId);
+
+            // Log final results count
+            var validResults = results.Where(r => r != null).ToList();
+            logger.LogAlways($"{providerName}Search", $"Retrieved {validResults.Count}/{hits.Count} details");
+
+            return Results.Json(ApiResponse<List<Metadata>>.Ok(validResults));
         }
         catch (OperationCanceledException)
         {
@@ -284,6 +299,9 @@ public static class ProviderRegistrationBuilder
 
             var detailUrl = provider.BuildDetailUrlById(parsedId);
             var result = await provider.FetchDetailAsync(detailUrl, ct).ConfigureAwait(false);
+
+            // Record rate limit completion after successful fetch to enforce minimum interval
+            rateLimiter.RecordRequestComplete(slot.SlotId);
 
             cache.SetCached(cacheKey, parsedId, result);
 
