@@ -334,7 +334,7 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError("StealthScript", "Failed to inject even inline stealth script", null, ex);
+                _logger.LogFailure("StealthScript", "Failed to inject even inline stealth script", null, ex);
             }
         }
         
