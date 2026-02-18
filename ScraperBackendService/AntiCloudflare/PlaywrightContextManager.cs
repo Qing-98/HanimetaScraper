@@ -302,7 +302,7 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
                 }
                 else
                 {
-                    _logger.LogWarning("StealthScript", $"Stealth script file not found at: {path}");
+                    _logger.LogWarning("StealthScript", "Stealth script file not found at path", path);
                 }
             }
         }

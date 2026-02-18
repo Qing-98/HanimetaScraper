@@ -140,7 +140,22 @@
             const el = originalCreateElement.call(this, tagName);
             if (tagName && tagName.toLowerCase() === 'iframe') {
                 try {
-                    Object.defineProperty(el.contentWindow, 'webdriver', { get: () => undefined });
+                    // Use a getter that checks if contentWindow is available
+                    const originalContentWindowGetter = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow')?.get;
+                    if (originalContentWindowGetter) {
+                        Object.defineProperty(el, 'contentWindow', {
+                            get: function() {
+                                const win = originalContentWindowGetter.call(this);
+                                if (win) {
+                                    try {
+                                        Object.defineProperty(win, 'webdriver', { get: () => undefined });
+                                        Object.defineProperty(win.navigator, 'webdriver', { get: () => undefined });
+                                    } catch (e) { }
+                                }
+                                return win;
+                            }
+                        });
+                    }
                 } catch (e) { }
             }
             return el;
