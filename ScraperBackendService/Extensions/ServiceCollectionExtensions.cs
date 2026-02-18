@@ -1,1 +1,234 @@
-using Microsoft.Playwright;using ScraperBackendService.Configuration;using ScraperBackendService.Core.Net;using ScraperBackendService.AntiCloudflare;using Microsoft.Extensions.DependencyInjection;using Microsoft.Extensions.Logging;using System.Threading;using ScraperBackendService.Core.Logging;using Microsoft.Extensions.Hosting;namespace ScraperBackendService.Extensions;/// <summary>/// Service registration extension methods for dependency injection configuration./// </summary>public static class ServiceCollectionExtensions{    public static IServiceCollection AddScrapingServices(this IServiceCollection services, ServiceConfiguration config)    {        // Register configuration options for dependency injection        services.Configure<ServiceConfiguration>(opt =>        {            opt.Port = config.Port;            opt.Host = config.Host;            opt.AuthToken = config.AuthToken;            opt.TokenHeaderName = config.TokenHeaderName;            opt.RequestTimeoutSeconds = config.RequestTimeoutSeconds;            opt.MaxConcurrentRequests = config.MaxConcurrentRequests;            opt.RateLimitSeconds = config.RateLimitSeconds;            opt.EnableAggressiveMemoryOptimization = config.EnableAggressiveMemoryOptimization;            opt.ChallengeAutoWaitSeconds = config.ChallengeAutoWaitSeconds;            opt.ChallengeAutoWaitSlowSeconds = config.ChallengeAutoWaitSlowSeconds;        });        // Register PlaywrightService as singleton to manage browser lifecycle        services.AddSingleton<PlaywrightService>();        // Register Playwright browser as singleton with proper disposal        services.AddSingleton<IBrowser>(sp =>        {            var playwrightService = sp.GetRequiredService<PlaywrightService>();            return playwrightService.GetBrowserAsync().GetAwaiter().GetResult();        });        // Register PlaywrightContextManager as singleton using the browser instance        services.AddSingleton<PlaywrightContextManager>(sp =>        {            var browser = sp.GetRequiredService<IBrowser>();            var logger = sp.GetRequiredService<ILogger<PlaywrightContextManager>>();            var options = new ScrapeRuntimeOptions            {                ChallengeAutoWaitMs = config.ChallengeAutoWaitSeconds * 1000,                ChallengeAutoWaitSlowMs = config.ChallengeAutoWaitSlowSeconds * 1000            };            return new PlaywrightContextManager(browser, logger, options);        });        // Register PlaywrightNetworkClient using context manager        services.AddScoped<PlaywrightNetworkClient>(sp =>        {            var ctxMgr = sp.GetRequiredService<PlaywrightContextManager>();            var logger = sp.GetRequiredService<ILogger<PlaywrightNetworkClient>>();            return new PlaywrightNetworkClient(ctxMgr, logger);        });        // Register HttpNetworkClient via IHttpClientFactory        services.AddHttpClient<HttpNetworkClient>();        // =============== Register All Providers ===============        // Provider registration is managed by ProviderRegistry        foreach (var providerConfig in Providers._Registry.ProviderRegistry.GetAllProviders())        {            Providers._Registry.ProviderRegistry.RegisterProvider(services, providerConfig, config);        }        return services;    }}/// <summary>/// Service for managing Playwright lifecycle./// </summary>public class PlaywrightService : IAsyncDisposable, IDisposable{    private readonly ILogger<PlaywrightService> _logger;    private readonly TaskCompletionSource<IBrowser> _browserTcs = new();    private IPlaywright? _playwright;    private IBrowser? _browser;    private bool _disposed = false;    public PlaywrightService(ILogger<PlaywrightService> logger)    {        _logger = logger;        _ = Task.Run(InitializeBrowserAsync);    }    public async Task<IBrowser> GetBrowserAsync()    {        return await _browserTcs.Task.ConfigureAwait(false);    }    private async Task InitializeBrowserAsync()    {        try        {            _logger.LogDebug("Initializing Playwright browser...");            _playwright = await Playwright.CreateAsync().ConfigureAwait(false);            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions            {                Headless = true,                Args = new[] {                    "--no-sandbox",                    "--disable-blink-features=AutomationControlled",                    "--disable-dev-shm-usage",                    "--disable-gpu"                }            }).ConfigureAwait(false);            _logger.LogAlways("PlaywrightService", "Playwright browser initialized successfully");            _browserTcs.SetResult(_browser);        }        catch (Exception ex)        {            _logger.LogFailure("PlaywrightService", "Failed to initialize Playwright browser", null, ex);            _browserTcs.SetException(ex);        }    }    public async ValueTask DisposeAsync()    {        if (_disposed) return;        try        {            _logger.LogDebug("Disposing Playwright resources...");            if (_browser != null && _browser.IsConnected)            {                await _browser.CloseAsync().ConfigureAwait(false);                _logger.LogDebug("Browser closed successfully");            }            if (_playwright != null)            {                _playwright.Dispose();                _logger.LogDebug("Playwright disposed successfully");            }        }        catch (Exception ex)        {            _logger.LogWarning(ex, "Error during Playwright disposal");        }        finally        {            _disposed = true;        }    }    public void Dispose()    {        try        {            DisposeAsync().GetAwaiter().GetResult();        }        catch (Exception ex)        {            _logger.LogWarning(ex, "Error during synchronous Playwright disposal");        }    }}/// <summary>/// Hosted service to ensure proper cleanup of Playwright resources on application shutdown./// </summary>public class PlaywrightCleanupService : IHostedService{    private readonly PlaywrightService _playwrightService;    private readonly PlaywrightContextManager _contextManager;    private readonly ILogger<PlaywrightCleanupService> _logger;    public PlaywrightCleanupService(        PlaywrightService playwrightService,        PlaywrightContextManager contextManager,        ILogger<PlaywrightCleanupService> logger)    {        _playwrightService = playwrightService;        _contextManager = contextManager;        _logger = logger;    }    public Task StartAsync(CancellationToken cancellationToken)    {        _logger.LogDebug("Playwright cleanup service started");        return Task.CompletedTask;    }    public async Task StopAsync(CancellationToken cancellationToken)    {        _logger.LogDebug("Stopping Playwright cleanup service...");        try        {            await _contextManager.DisposeAsync().ConfigureAwait(false);            await _playwrightService.DisposeAsync().ConfigureAwait(false);            _logger.LogInformation("Playwright resources cleaned up successfully");        }        catch (Exception ex)        {            _logger.LogError(ex, "Error during Playwright cleanup");        }    }}
+using Microsoft.Playwright;
+using ScraperBackendService.Configuration;
+using ScraperBackendService.Core.Net;
+using ScraperBackendService.AntiCloudflare;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.Threading;
+using ScraperBackendService.Core.Logging;
+using Microsoft.Extensions.Hosting;
+
+namespace ScraperBackendService.Extensions;
+
+/// <summary>
+/// Service registration extension methods for dependency injection configuration.
+/// </summary>
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddScrapingServices(this IServiceCollection services, ServiceConfiguration config)
+    {
+        // Register configuration options for dependency injection
+        services.Configure<ServiceConfiguration>(opt =>
+        {
+            opt.Port = config.Port;
+            opt.Host = config.Host;
+            opt.AuthToken = config.AuthToken;
+            opt.TokenHeaderName = config.TokenHeaderName;
+            opt.RequestTimeoutSeconds = config.RequestTimeoutSeconds;
+            opt.MaxConcurrentRequests = config.MaxConcurrentRequests;
+            opt.RateLimitSeconds = config.RateLimitSeconds;
+            opt.EnableAggressiveMemoryOptimization = config.EnableAggressiveMemoryOptimization;
+            opt.ChallengeAutoWaitSeconds = config.ChallengeAutoWaitSeconds;
+            opt.ChallengeAutoWaitSlowSeconds = config.ChallengeAutoWaitSlowSeconds;
+        });
+
+        // Register PlaywrightService as singleton to manage browser lifecycle
+        services.AddSingleton<PlaywrightService>();
+
+        // Register Playwright browser as singleton with proper disposal
+        services.AddSingleton<IBrowser>(sp =>
+        {
+            var playwrightService = sp.GetRequiredService<PlaywrightService>();
+            return playwrightService.GetBrowserAsync().GetAwaiter().GetResult();
+        });
+
+        // Register PlaywrightContextManager as singleton using the browser instance
+        services.AddSingleton<PlaywrightContextManager>(sp =>
+        {
+            var browser = sp.GetRequiredService<IBrowser>();
+            var logger = sp.GetRequiredService<ILogger<PlaywrightContextManager>>();
+            var options = new ScrapeRuntimeOptions
+            {
+                ChallengeAutoWaitMs = config.ChallengeAutoWaitSeconds * 1000,
+                ChallengeAutoWaitSlowMs = config.ChallengeAutoWaitSlowSeconds * 1000
+            };
+            return new PlaywrightContextManager(browser, logger, options);
+        });
+
+        // Register PlaywrightNetworkClient using context manager
+        services.AddScoped<PlaywrightNetworkClient>(sp =>
+        {
+            var ctxMgr = sp.GetRequiredService<PlaywrightContextManager>();
+            var logger = sp.GetRequiredService<ILogger<PlaywrightNetworkClient>>();
+            return new PlaywrightNetworkClient(ctxMgr, logger);
+        });
+
+        // Register HttpNetworkClient via IHttpClientFactory
+        services.AddHttpClient<HttpNetworkClient>();
+
+        // =============== Register All Providers ===============
+        // Provider registration is managed by ProviderRegistry
+        foreach (var providerConfig in Providers._Registry.ProviderRegistry.GetAllProviders())
+        {
+            Providers._Registry.ProviderRegistry.RegisterProvider(services, providerConfig, config);
+        }
+
+        return services;
+    }
+}
+
+/// <summary>
+/// Service for managing Playwright lifecycle.
+/// </summary>
+public class PlaywrightService : IAsyncDisposable, IDisposable
+{
+    private readonly ILogger<PlaywrightService> _logger;
+    private readonly TaskCompletionSource<IBrowser> _browserTcs = new();
+    private IPlaywright? _playwright;
+    private IBrowser? _browser;
+    private bool _disposed = false;
+
+    public PlaywrightService(ILogger<PlaywrightService> logger)
+    {
+        _logger = logger;
+        _ = Task.Run(InitializeBrowserAsync);
+    }
+
+    public async Task<IBrowser> GetBrowserAsync()
+    {
+        return await _browserTcs.Task.ConfigureAwait(false);
+    }
+
+    private async Task InitializeBrowserAsync()
+    {
+        try
+        {
+            _logger.LogDebug("Initializing Playwright browser...");
+            _playwright = await Playwright.CreateAsync().ConfigureAwait(false);
+            
+            // Enhanced browser launch arguments for better anti-detection
+            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            {
+                Headless = true,
+                Args = new[]
+                {
+                    "--no-sandbox",
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-setuid-sandbox",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-infobars",
+                    "--window-size=1920,1080",
+                    "--disable-extensions",
+                    "--disable-popup-blocking",
+                    "--disable-notifications",
+                    "--disable-web-security",
+                    "--disable-features=IsolateOrigins,site-per-process,VizDisplayCompositor",
+                    "--enable-features=NetworkService,NetworkServiceInProcess",
+                    "--disable-background-timer-throttling",
+                    "--disable-backgrounding-occluded-windows",
+                    "--disable-renderer-backgrounding",
+                    "--disable-hang-monitor",
+                    "--disable-ipc-flooding-protection",
+                    "--disable-client-side-phishing-detection",
+                    "--disable-default-apps",
+                    "--disable-component-extensions-with-background-pages",
+                    "--disable-sync",
+                    "--metrics-recording-only",
+                    "--no-crash-upload",
+                    "--enable-automation=false"
+                }
+            }).ConfigureAwait(false);
+            
+            _logger.LogAlways("PlaywrightService", "Playwright browser initialized successfully with enhanced anti-detection");
+            _browserTcs.SetResult(_browser);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogFailure("PlaywrightService", "Failed to initialize Playwright browser", null, ex);
+            _browserTcs.SetException(ex);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        try
+        {
+            _logger.LogDebug("Disposing Playwright resources...");
+            if (_browser != null && _browser.IsConnected)
+            {
+                await _browser.CloseAsync().ConfigureAwait(false);
+                _logger.LogDebug("Browser closed successfully");
+            }
+            if (_playwright != null)
+            {
+                _playwright.Dispose();
+                _logger.LogDebug("Playwright disposed successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during Playwright disposal");
+        }
+        finally
+        {
+            _disposed = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            DisposeAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during synchronous Playwright disposal");
+        }
+    }
+}
+
+/// <summary>
+/// Hosted service to ensure proper cleanup of Playwright resources on application shutdown.
+/// </summary>
+public class PlaywrightCleanupService : IHostedService
+{
+    private readonly PlaywrightService _playwrightService;
+    private readonly PlaywrightContextManager _contextManager;
+    private readonly ILogger<PlaywrightCleanupService> _logger;
+
+    public PlaywrightCleanupService(
+        PlaywrightService playwrightService,
+        PlaywrightContextManager contextManager,
+        ILogger<PlaywrightCleanupService> logger)
+    {
+        _playwrightService = playwrightService;
+        _contextManager = contextManager;
+        _logger = logger;
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Playwright cleanup service started");
+        return Task.CompletedTask;
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Stopping Playwright cleanup service...");
+        try
+        {
+            await _contextManager.DisposeAsync().ConfigureAwait(false);
+            await _playwrightService.DisposeAsync().ConfigureAwait(false);
+            _logger.LogInformation("Playwright resources cleaned up successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Playwright cleanup");
+        }
+    }
+}
