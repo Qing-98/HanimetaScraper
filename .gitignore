@@ -32,6 +32,8 @@ packages/
 .idea/
 *.iml
 
+repository.json
+
 # ======================
 # Storage State Files (Anti-Cloudflare)
 # ======================
@@ -40,6 +42,11 @@ packages/
 **/storageState.json
 ScraperBackendService/AntiCloudflare/storageState.json
 ScraperBackendService/Dockerfile/
+
+# Cookie Persistence Storage - DO NOT COMMIT
+ScraperBackendService/Data/
+**/Data/Cookies/
+cookies.json
 
 # ======================
 # Python

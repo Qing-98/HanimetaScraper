@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ScraperBackendService.AntiCloudflare;
 using ScraperBackendService.Core.Net;
 using ScraperBackendService.Providers._Registry;
 
@@ -30,6 +31,7 @@ public class HanimeProviderConfig : IProviderConfig
     public object CreateProvider(IServiceProvider serviceProvider, ILogger logger)
     {
         var client = serviceProvider.GetRequiredService<PlaywrightNetworkClient>();
-        return new HanimeProvider(client, (ILogger<HanimeProvider>)logger);
+        var detector = serviceProvider.GetRequiredService<ChallengeDetector>();
+        return new HanimeProvider(client, (ILogger<HanimeProvider>)logger, detector);
     }
 }
