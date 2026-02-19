@@ -1,11 +1,10 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
-using ScraperBackendService.AntiCloudflare;
 using ScraperBackendService.Core.Abstractions;
 using ScraperBackendService.Core.Logging;
 using System.Diagnostics;
+using ScraperBackendService.Browser;
 
 namespace ScraperBackendService.Core.Net;
 
@@ -573,7 +572,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
                         if (!string.IsNullOrWhiteSpace(result.UserAgent))
                         {
                         _ctxMgr.Options.UserAgent = result.UserAgent;
-                        _log?.LogInformation("AntiBot", $"已更新全局 UserAgent 为: {result.UserAgent}");
+                        _log?.LogSuccess("AntiBot", $"已更新全局 UserAgent 为: {result.UserAgent}");
                         }
 
                         if (!string.IsNullOrEmpty(domain) && _ctxMgr.CookieManager != null)

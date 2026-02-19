@@ -119,15 +119,17 @@ public static class ProviderRegistry
         var provider = (IMediaProvider)sp.GetRequiredService(config.ProviderType);
         var limiter = sp.GetRequiredKeyedService<ProviderConcurrencyLimiter>($"{providerName}ConcurrencyLimiter");
         var rateLimiter = sp.GetRequiredKeyedService<ProviderRateLimiter>($"{providerName}RateLimiter");
+        var cache = sp.GetRequiredService<MetadataCache>();
 
-        ConcurrencySlot? slot = null;
+        var maxResults = Math.Min(max ?? 12, 50);
+        logger.LogAlways($"{providerName}Search", $"Searching: '{title}' (max: {maxResults})");
+
+        // ── Phase 1: fetch the search results page (slot + rate limited) ──
+        IReadOnlyList<SearchHit> hits;
         try
         {
-            var maxResults = Math.Min(max ?? 12, 50);
-            logger.LogAlways($"{providerName}Search", $"Searching: '{title}' (max: {maxResults})");
-
-            slot = await limiter.TryWaitAndAcquireSlotAsync(15000, ct).ConfigureAwait(false);
-            if (slot == null)
+            var searchSlot = await limiter.TryWaitAndAcquireSlotAsync(15_000, ct).ConfigureAwait(false);
+            if (searchSlot == null)
             {
                 logger.LogRateLimit($"{providerName}Search");
                 return Results.Json(
@@ -135,56 +137,22 @@ public static class ProviderRegistry
                     statusCode: 429);
             }
 
-            var waitTime = rateLimiter.GetWaitTime(slot.SlotId);
-            if (waitTime > TimeSpan.Zero)
+            try
             {
-                logger.LogDebug($"{providerName}Search", $"Rate limit wait: {waitTime.TotalSeconds:F1}s", title);
+                var waitTime = rateLimiter.GetWaitTime(searchSlot.SlotId);
+                if (waitTime > TimeSpan.Zero)
+                    logger.LogDebug($"{providerName}Search", $"Rate limit wait: {waitTime.TotalSeconds:F1}s", title);
+
+                await rateLimiter.WaitIfNeededAsync(searchSlot.SlotId, ct).ConfigureAwait(false);
+                hits = await provider.SearchAsync(title, maxResults, ct).ConfigureAwait(false);
+                rateLimiter.RecordRequestComplete(searchSlot.SlotId);
             }
-
-            await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
-
-            var hits = await provider.SearchAsync(title, maxResults, ct).ConfigureAwait(false);
-
-            // Log search results count
-            if (hits.Count > 0)
+            finally
             {
-                logger.LogAlways($"{providerName}Search", $"Found {hits.Count} results", title);
+                // Always release the search slot before expanding to detail pages,
+                // so detail fetches (below) can compete fairly with other API requests.
+                searchSlot.Dispose();
             }
-            else
-            {
-                logger.LogAlways($"{providerName}Search", "No results found", title);
-                // Record successful rate limit completion even for zero results
-                rateLimiter.RecordRequestComplete(slot.SlotId);
-                return Results.Json(ApiResponse<List<Metadata>>.Ok(new List<Metadata>()));
-            }
-
-            // Use OrderedAsync.ForEachAsync to limit concurrent detail fetching to 4-6 tasks
-            // This prevents overwhelming the target server with too many simultaneous requests
-            var results = await ScraperBackendService.Core.Util.OrderedAsync.ForEachAsync(
-                hits.Take(maxResults).ToList(),
-                degree: 4, // Limit to 4 concurrent detail fetches
-                async hit =>
-                {
-                    try
-                    {
-                        var detail = await provider.FetchDetailAsync(hit.DetailUrl, ct).ConfigureAwait(false);
-                        return detail;
-                    }
-                    catch (Exception)
-                    {
-                        logger.LogWarningLite("DetailFetch", "Failed", hit.DetailUrl);
-                        return null;
-                    }
-                });
-
-            // Record successful rate limit completion
-            rateLimiter.RecordRequestComplete(slot.SlotId);
-
-            // Log final results count
-            var validResults = results.Where(r => r != null).ToList();
-            logger.LogAlways($"{providerName}Search", $"Retrieved {validResults.Count}/{hits.Count} details");
-
-            return Results.Json(ApiResponse<List<Metadata>>.Ok(validResults));
         }
         catch (OperationCanceledException)
         {
@@ -196,10 +164,63 @@ public static class ProviderRegistry
             logger.LogFailure($"{providerName}Search", $"Search error: {ex.Message}", title, ex);
             return Results.Json(ApiResponse<List<Metadata>>.Fail($"Search error: {ex.Message}"));
         }
-        finally
+
+        if (hits.Count == 0)
         {
-            slot?.Dispose();
+            logger.LogAlways($"{providerName}Search", "No results found", title);
+            return Results.Json(ApiResponse<List<Metadata>>.Ok(new List<Metadata>()));
         }
+
+        logger.LogAlways($"{providerName}Search", $"Found {hits.Count} results", title);
+
+        // ── Phase 2: expand each hit to full detail (slot limited, cache-aware) ──
+        // Each hit goes through FetchDetailWithCacheAsync — the same logic used by the
+        // direct detail endpoint — with two differences:
+        //   applyRateLimit: false  (rate was already paid by the search phase)
+        //   slotTimeoutMs: 30_000  (worth waiting longer; we already have the hit list)
+        List<Metadata> results;
+        try
+        {
+            results = await ScraperBackendService.Core.Util.OrderedAsync.ForEachAsync(
+                hits.Take(maxResults).ToList(),
+                degree: limiter.MaxCount, // match slot pool size — no point spawning more workers than available slots
+                async hit =>
+                {
+                    if (!provider.TryParseId(hit.DetailUrl, out var hitId))
+                        return null;
+                    try
+                    {
+                        return await FetchDetailWithCacheAsync(
+                            provider, limiter, rateLimiter, cache, cacheKey,
+                            hitId, hit.DetailUrl, slotTimeoutMs: 30_000,
+                            logger, $"{providerName}DetailExpand", ct).ConfigureAwait(false);
+                    }
+                    catch (InvalidOperationException ex) when (ex.Message.StartsWith("Slot busy"))
+                    {
+                        logger.LogWarningLite("DetailFetch", "Slot timeout, skipping", hit.DetailUrl);
+                        return null;
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogWarningLite("DetailFetch", "Failed", hit.DetailUrl);
+                        return null;
+                    }
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarningLite($"{providerName}Search", "Cancelled during detail fetch", title);
+            return Results.Json(ApiResponse<List<Metadata>>.Fail("Request cancelled"));
+        }
+        catch (Exception ex)
+        {
+            logger.LogFailure($"{providerName}Search", $"Detail fetch error: {ex.Message}", title, ex);
+            return Results.Json(ApiResponse<List<Metadata>>.Fail($"Detail fetch error: {ex.Message}"));
+        }
+
+        var validResults = results.Where(r => r != null).Select(r => r!).ToList();
+        logger.LogAlways($"{providerName}Search", $"Retrieved {validResults.Count}/{hits.Count} details");
+        return Results.Json(ApiResponse<List<Metadata>>.Ok(validResults));
     }
 
     private static async Task<IResult> HandleDetailRequest(
@@ -216,70 +237,21 @@ public static class ProviderRegistry
         var rateLimiter = sp.GetRequiredKeyedService<ProviderRateLimiter>($"{providerName}RateLimiter");
         var cache = sp.GetRequiredService<MetadataCache>();
 
-        ConcurrencySlot? slot = null;
+        logger.LogAlways($"{providerName}Detail", $"Querying ID: {id}");
+
+        if (!provider.TryParseId(id, out var parsedId))
+        {
+            logger.LogAlways($"{providerName}Detail", $"Invalid ID format: {id}");
+            return Results.Json(ApiResponse<Metadata>.Fail($"Invalid {providerName} ID: {id}"));
+        }
+
         try
         {
-            logger.LogAlways($"{providerName}Detail", $"Querying ID: {id}");
-
-            if (!provider.TryParseId(id, out var parsedId))
-            {
-                logger.LogAlways($"{providerName}Detail", $"Invalid ID format: {id}");
-                return Results.Json(ApiResponse<Metadata>.Fail($"Invalid {providerName} ID: {id}"));
-            }
-
-            // First cache check: Fast path without acquiring slot
-            // Avoid wasting concurrency slots for cached items
-            var cachedResult = cache.TryGetCached(cacheKey, parsedId);
-            if (cachedResult != null)
-            {
-                logger.LogAlways($"{providerName}Detail", "Cache hit", parsedId);
-                return Results.Json(ApiResponse<Metadata>.Ok(cachedResult));
-            }
-
-            // Acquire concurrency slot for actual scraping
-            slot = await limiter.TryWaitAndAcquireSlotAsync(15000, ct).ConfigureAwait(false);
-            if (slot == null)
-            {
-                logger.LogRateLimit($"{providerName}Detail");
-                return Results.Json(
-                    ApiResponse<Metadata>.Fail("Service busy. All concurrency slots occupied. Please retry later."),
-                    statusCode: 429);
-            }
-
-            logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} acquired", parsedId);
-
-            // Second cache check: Critical for preventing duplicate scraping
-            // While we were waiting for slot, another request may have cached the result
-            // This is the "double-checked locking" pattern for concurrent scenarios
-            cachedResult = cache.TryGetCached(cacheKey, parsedId);
-            if (cachedResult != null)
-            {
-                logger.LogAlways($"{providerName}Detail", "Cache hit (after slot wait)", parsedId);
-                return Results.Json(ApiResponse<Metadata>.Ok(cachedResult));
-            }
-
-            var waitTime = rateLimiter.GetWaitTime(slot.SlotId);
-            if (waitTime > TimeSpan.Zero)
-            {
-                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} waiting {waitTime.TotalSeconds:F1}s (rate limit)", parsedId);
-            }
-            else
-            {
-                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} no wait needed (first request or interval passed)", parsedId);
-            }
-
-            await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
-
             var detailUrl = provider.BuildDetailUrlById(parsedId);
-            logger.LogDebug($"{providerName}Detail", $"Fetching: {detailUrl}", parsedId);
-            
-            var result = await provider.FetchDetailAsync(detailUrl, ct).ConfigureAwait(false);
-
-            // Record rate limit completion after successful fetch to enforce minimum interval
-            rateLimiter.RecordRequestComplete(slot.SlotId);
-            logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} request complete, timestamp recorded", parsedId);
-
-            cache.SetCached(cacheKey, parsedId, result);
+            var result = await FetchDetailWithCacheAsync(
+                provider, limiter, rateLimiter, cache, cacheKey,
+                parsedId, detailUrl, slotTimeoutMs: 15_000,
+                logger, $"{providerName}Detail", ct).ConfigureAwait(false);
 
             if (result != null)
             {
@@ -289,7 +261,7 @@ public static class ProviderRegistry
             else
             {
                 logger.LogAlways($"{providerName}Detail", "Content not found", parsedId);
-                return Results.Json(ApiResponse<Metadata>.Fail($"Content not found: {id}"));
+                return Results.Json(ApiResponse<Metadata>.Fail($"Content not found: {id}"), statusCode: 404);
             }
         }
         catch (OperationCanceledException)
@@ -297,18 +269,83 @@ public static class ProviderRegistry
             logger.LogWarningLite($"{providerName}Detail", "Cancelled", id);
             return Results.Json(ApiResponse<Metadata>.Fail("Request cancelled"));
         }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Slot busy"))
+        {
+            logger.LogRateLimit($"{providerName}Detail");
+            return Results.Json(
+                ApiResponse<Metadata>.Fail("Service busy. All concurrency slots occupied. Please retry later."),
+                statusCode: 429);
+        }
         catch (Exception ex)
         {
             logger.LogFailure($"{providerName}Detail", $"Detail error: {ex.Message}", id, ex);
             return Results.Json(ApiResponse<Metadata>.Fail($"Detail error: {ex.Message}"));
         }
+    }
+
+    /// <summary>
+    /// Core detail fetch logic shared by the detail endpoint and search-internal expansion.
+    /// Implements double-checked cache, slot acquisition, rate limiting, and cache write.
+    /// Rate limiting is always applied: any caller that acquires a slot is subject to the
+    /// per-slot interval, ensuring consistent throttling regardless of call origin.
+    /// </summary>
+    /// <param name="slotTimeoutMs">
+    /// How long to wait for a free slot before giving up.
+    /// Direct detail requests use a shorter timeout (fail fast with 429);
+    /// search-internal fetches use a longer timeout (worth waiting in queue).
+    /// </param>
+    /// <exception cref="InvalidOperationException">Thrown with "Slot busy" prefix when no slot is available within the timeout.</exception>
+    private static async Task<Metadata?> FetchDetailWithCacheAsync(
+        IMediaProvider provider,
+        ProviderConcurrencyLimiter limiter,
+        ProviderRateLimiter rateLimiter,
+        MetadataCache cache,
+        string cacheKey,
+        string parsedId,
+        string detailUrl,
+        int slotTimeoutMs,
+        ILogger logger,
+        string logOperation,
+        CancellationToken ct)
+    {
+        // Pre-slot cache check — avoids acquiring a slot for already-cached items
+        var cached = cache.TryGetCached(cacheKey, parsedId);
+        if (cached != null)
+        {
+            logger.LogDebug(logOperation, "Cache hit (pre-slot)", parsedId);
+            return cached;
+        }
+
+        var slot = await limiter.TryWaitAndAcquireSlotAsync(slotTimeoutMs, ct).ConfigureAwait(false);
+        if (slot == null)
+            throw new InvalidOperationException("Slot busy");
+
+        try
+        {
+            // Post-slot cache check — guards against parallel workers fetching the same ID
+            cached = cache.TryGetCached(cacheKey, parsedId);
+            if (cached != null)
+            {
+                logger.LogDebug(logOperation, "Cache hit (post-slot)", parsedId);
+                return cached;
+            }
+
+            var waitTime = rateLimiter.GetWaitTime(slot.SlotId);
+            if (waitTime > TimeSpan.Zero)
+                logger.LogDebug(logOperation, $"Slot {slot.SlotId} rate limit wait: {waitTime.TotalSeconds:F1}s", parsedId);
+            await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
+
+            logger.LogDebug(logOperation, $"Slot {slot.SlotId} fetching", parsedId);
+            var result = await provider.FetchDetailAsync(detailUrl, ct).ConfigureAwait(false);
+
+            rateLimiter.RecordRequestComplete(slot.SlotId);
+            cache.SetCached(cacheKey, parsedId, result);
+            return result;
+        }
         finally
         {
-            if (slot != null)
-            {
-                logger.LogDebug($"{providerName}Detail", $"Slot {slot.SlotId} released", id);
-            }
-            slot?.Dispose();
+            logger.LogDebug(logOperation, $"Slot {slot.SlotId} released", parsedId);
+            slot.Dispose();
         }
     }
 

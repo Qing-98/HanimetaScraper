@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ScraperBackendService.AntiCloudflare;
+using ScraperBackendService.Browser;
+using ScraperBackendService.Core.Abstractions;
 using ScraperBackendService.Core.Net;
-using ScraperBackendService.Providers._Registry;
 
 namespace ScraperBackendService.Providers.Hanime;
 

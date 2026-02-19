@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ScraperBackendService.AntiCloudflare;
+using ScraperBackendService.Browser;
+using ScraperBackendService.Core.Logging;
 
-namespace ScraperBackendService.Extensions;
+namespace ScraperBackendService.Browser;
 
 /// <summary>
 /// Hosted service that ensures proper cleanup of Playwright resources on application shutdown.
@@ -25,23 +26,23 @@ public class PlaywrightCleanupService : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Playwright cleanup service started");
+        _logger.LogDebug("PlaywrightCleanup", "Playwright cleanup service started");
         return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Stopping Playwright cleanup service...");
+        _logger.LogDebug("PlaywrightCleanup", "Stopping Playwright cleanup service...");
 
         try
         {
             await _contextManager.DisposeAsync().ConfigureAwait(false);
             await _playwrightService.DisposeAsync().ConfigureAwait(false);
-            _logger.LogInformation("Playwright resources cleaned up successfully");
+            _logger.LogSuccess("PlaywrightCleanup", "Playwright resources cleaned up successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during Playwright cleanup");
+            _logger.LogFailure("PlaywrightCleanup", "Error during Playwright cleanup", null, ex);
         }
     }
 }

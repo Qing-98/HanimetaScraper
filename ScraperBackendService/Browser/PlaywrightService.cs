@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using ScraperBackendService.Core.Logging;
 
-namespace ScraperBackendService.Extensions;
+namespace ScraperBackendService.Browser;
 
 /// <summary>
 /// Manages the Playwright IPlaywright instance and IBrowser lifecycle.

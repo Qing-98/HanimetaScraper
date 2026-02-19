@@ -38,9 +38,9 @@ repository.json
 # Storage State Files (Anti-Cloudflare)
 # ======================
 # Contains sensitive cookies/sessions - DO NOT COMMIT
-**/AntiCloudflare/storageState.json
+**/Browser/storageState.json
 **/storageState.json
-ScraperBackendService/AntiCloudflare/storageState.json
+ScraperBackendService/Browser/storageState.json
 ScraperBackendService/Dockerfile/
 
 # Cookie Persistence Storage - DO NOT COMMIT

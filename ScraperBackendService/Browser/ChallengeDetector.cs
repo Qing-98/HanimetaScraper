@@ -2,7 +2,7 @@ using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
-namespace ScraperBackendService.AntiCloudflare;
+namespace ScraperBackendService.Browser;
 
 /// <summary>
 /// Improved Cloudflare challenge detector with reduced false positive rate.

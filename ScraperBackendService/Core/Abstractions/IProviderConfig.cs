@@ -1,4 +1,4 @@
-namespace ScraperBackendService.Providers._Registry;
+namespace ScraperBackendService.Core.Abstractions;
 
 /// <summary>
 /// Interface for provider configuration.

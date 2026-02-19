@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ScraperBackendService.AntiCloudflare;
+namespace ScraperBackendService.Browser;
 
 /// <summary>
 /// Cookie 持久化数据模型
@@ -155,7 +155,7 @@ public class CookiePersistenceManager
         }
         catch (Exception ex)
         {
-            _logger.LogError("CookiePersistence", "保存 cookies 失败", domain, ex);
+            _logger.LogFailure("CookiePersistence", "保存 cookies 失败", domain, ex);
         }
     }
 
@@ -201,8 +201,9 @@ public class CookiePersistenceManager
                     })
                     .ToList();
 
-                _logger.LogInformation("CookiePersistence", 
-                    $"已加载 {cookies.Count} 个 cookies (域名: {domain}, 年龄: {age.TotalHours:F1}小时)");
+                _logger.LogSuccess("CookiePersistence",
+                    $"{domain} | 年龄: {age.TotalHours:F1}小时",
+                    cookies.Count);
                 
                 return cookies;
             }
@@ -212,7 +213,7 @@ public class CookiePersistenceManager
         }
         catch (Exception ex)
         {
-            _logger.LogError("CookiePersistence", "加载 cookies 失败", domain, ex);
+            _logger.LogFailure("CookiePersistence", "加载 cookies 失败", domain, ex);
             return new List<Microsoft.Playwright.Cookie>();
         }
     }
@@ -233,8 +234,9 @@ public class CookiePersistenceManager
 
         if (allCookies.Count > 0)
         {
-            _logger.LogInformation("CookiePersistence", 
-                $"已加载总共 {allCookies.Count} 个 cookies (来自 {_memoryCache.Count} 个域名)");
+            _logger.LogSuccess("CookiePersistence",
+                $"来自 {_memoryCache.Count} 个域名",
+                allCookies.Count);
         }
 
         return allCookies;
@@ -248,7 +250,7 @@ public class CookiePersistenceManager
         if (_memoryCache.TryRemove(domain, out _))
         {
             await SaveToFileAsync();
-            _logger.LogInformation("CookiePersistence", $"已清除域名 {domain} 的 cookies");
+            _logger.LogSuccess("CookiePersistence", $"已清除域名 {domain} 的 cookies");
         }
     }
 
@@ -259,7 +261,7 @@ public class CookiePersistenceManager
     {
         _memoryCache.Clear();
         await SaveToFileAsync();
-        _logger.LogInformation("CookiePersistence", "已清除所有 cookies");
+        _logger.LogSuccess("CookiePersistence", "已清除所有 cookies");
     }
 
     /// <summary>
@@ -308,7 +310,7 @@ public class CookiePersistenceManager
         }
         catch (Exception ex)
         {
-            _logger.LogError("CookiePersistence", "从文件加载 cookies 失败", _storageFilePath, ex);
+            _logger.LogFailure("CookiePersistence", "从文件加载 cookies 失败", _storageFilePath, ex);
         }
         finally
         {
@@ -337,7 +339,7 @@ public class CookiePersistenceManager
         }
         catch (Exception ex)
         {
-            _logger.LogError("CookiePersistence", "保存 cookies 到文件失败", _storageFilePath, ex);
+            _logger.LogFailure("CookiePersistence", "保存 cookies 到文件失败", _storageFilePath, ex);
         }
         finally
         {
@@ -360,7 +362,7 @@ public class CookiePersistenceManager
         }
         catch (Exception ex)
         {
-            _logger.LogError("CookiePersistence", "创建存储目录失败", _storageDirectory, ex);
+            _logger.LogFailure("CookiePersistence", "创建存储目录失败", _storageDirectory, ex);
         }
     }
 

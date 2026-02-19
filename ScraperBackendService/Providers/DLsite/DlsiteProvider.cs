@@ -12,11 +12,11 @@ using ScraperBackendService.Core.Net;
 using ScraperBackendService.Core.Logging;
 using ScraperBackendService.Core.Normalize;
 using ScraperBackendService.Core.Parsing;
-using ScraperBackendService.Core.Routing;
 using ScraperBackendService.Core.Util;
 using ScraperBackendService.Models;
 using System.Globalization;
 using NetUrlHelper = ScraperBackendService.Core.Net.UrlHelper;
+using ScraperBackendService.Core.Pipeline;
 
 namespace ScraperBackendService.Providers.DLsite;
 

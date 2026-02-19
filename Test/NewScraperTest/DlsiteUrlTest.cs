@@ -1,5 +1,5 @@
 using System;
-using ScraperBackendService.Core.Routing;
+using ScraperBackendService.Core.Pipeline;
 
 namespace Test.NewScraperTest
 {
