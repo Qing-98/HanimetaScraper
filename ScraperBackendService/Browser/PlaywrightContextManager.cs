@@ -24,25 +24,9 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
     private readonly SemaphoreSlim _contextLock = new(1, 1);
     private bool _disposed = false;
 
-    // Shared mode
-    private IBrowserContext? _sharedCtx;
-    private DateTime _sharedBirth = DateTime.MinValue;
-    private volatile int _sharedOpenedPages = 0;
-    private volatile int _sharedActivePages = 0; // Count of pages currently being used
-    private volatile bool _sharedFlagged = false;
-
-    // Split mode
-    private IBrowserContext? _searchCtx;
-    private DateTime _searchBirth = DateTime.MinValue;
-    private volatile int _searchOpenedPages = 0;
-    private volatile int _searchActivePages = 0;
-    private volatile bool _searchFlagged = false;
-
-    private IBrowserContext? _detailCtx;
-    private DateTime _detailBirth = DateTime.MinValue;
-    private volatile int _detailOpenedPages = 0;
-    private volatile int _detailActivePages = 0;
-    private volatile bool _detailFlagged = false;
+    private readonly ContextSlotState _shared = new();
+    private readonly ContextSlotState _search = new();
+    private readonly ContextSlotState _detail = new();
 
     public PlaywrightContextManager(IBrowser browser, ILogger logger, PlaywrightClientOptions? opt = null)
     {
@@ -50,11 +34,11 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
         _logger = logger;
         _opt = opt ?? new PlaywrightClientOptions();
         
-        // 初始化 Cookie 持久化管理器
+        // Initialize cookie persistence manager
         if (_opt.EnableCookiePersistence)
         {
             _cookieManager = new CookiePersistenceManager(_logger, _opt.CookieStorageDirectory);
-            _logger.LogSuccess("CookiePersistence", "Cookie 持久化已启用");
+            _logger.LogSuccess("CookiePersistence", "Cookie persistence enabled");
         }
     }
 
@@ -63,68 +47,23 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
     /// <summary>The underlying browser instance.</summary>
     public IBrowser Browser => _browser;
     
-    /// <summary>获取 Cookie 管理器 (如果已启用)</summary>
+    /// <summary>Gets the cookie persistence manager (if enabled).</summary>
     public CookiePersistenceManager? CookieManager => _cookieManager;
 
     /// <summary>External API: get available context; forDetail indicates getting "detail-use" context.</summary>
     public async Task<IBrowserContext> GetOrCreateContextAsync(bool forDetail)
     {
         ThrowIfDisposed();
-        
+
         await _contextLock.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_opt.IsolationMode == ContextIsolationMode.Shared)
-            {
-                bool alive = _sharedCtx?.Browser?.IsConnected ?? false;
-                if (!alive || (ShouldRotate(_sharedBirth, _sharedOpenedPages, _sharedFlagged) && _sharedActivePages == 0))
-                {
-                    await SafeCloseAsync(_sharedCtx);
-                    _sharedCtx = await NewIsolatedContextAsync();
-                    _sharedBirth = DateTime.UtcNow;
-                    _sharedOpenedPages = 0;
-                    _sharedActivePages = 0;
-                    _sharedFlagged = false;
-                    _logger.LogResourceEvent("BrowserContext", "Created (Shared)");
-                }
-                Interlocked.Increment(ref _sharedActivePages);
-                return _sharedCtx!;
-            }
-            else
-            {
-                if (!forDetail)
-                {
-                    bool alive = _searchCtx?.Browser?.IsConnected ?? false;
-                    if (!alive || (ShouldRotate(_searchBirth, _searchOpenedPages, _searchFlagged) && _searchActivePages == 0))
-                    {
-                        await SafeCloseAsync(_searchCtx);
-                        _searchCtx = await NewIsolatedContextAsync();
-                        _searchBirth = DateTime.UtcNow;
-                        _searchOpenedPages = 0;
-                        _searchActivePages = 0;
-                        _searchFlagged = false;
-                        _logger.LogResourceEvent("BrowserContext", "Created (Search)");
-                    }
-                    Interlocked.Increment(ref _searchActivePages);
-                    return _searchCtx!;
-                }
-                else
-                {
-                    bool alive = _detailCtx?.Browser?.IsConnected ?? false;
-                    if (!alive || (ShouldRotate(_detailBirth, _detailOpenedPages, _detailFlagged) && _detailActivePages == 0))
-                    {
-                        await SafeCloseAsync(_detailCtx);
-                        _detailCtx = await NewIsolatedContextAsync();
-                        _detailBirth = DateTime.UtcNow;
-                        _detailOpenedPages = 0;
-                        _detailActivePages = 0;
-                        _detailFlagged = false;
-                        _logger.LogResourceEvent("BrowserContext", "Created (Detail)");
-                    }
-                    Interlocked.Increment(ref _detailActivePages);
-                    return _detailCtx!;
-                }
-            }
+                return await EnsureSlotContextAsync(_shared, "Shared");
+
+            return forDetail
+                ? await EnsureSlotContextAsync(_detail, "Detail")
+                : await EnsureSlotContextAsync(_search, "Search");
         }
         finally
         {
@@ -139,12 +78,12 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
         
         if (_opt.IsolationMode == ContextIsolationMode.Shared)
         {
-            if (ReferenceEquals(ctx, _sharedCtx)) Interlocked.Increment(ref _sharedOpenedPages);
+            if (ReferenceEquals(ctx, _shared.Ctx)) Interlocked.Increment(ref _shared.OpenedPages);
         }
         else
         {
-            if (ReferenceEquals(ctx, _searchCtx)) Interlocked.Increment(ref _searchOpenedPages);
-            else if (ReferenceEquals(ctx, _detailCtx)) Interlocked.Increment(ref _detailOpenedPages);
+            if (ReferenceEquals(ctx, _search.Ctx)) Interlocked.Increment(ref _search.OpenedPages);
+            else if (ReferenceEquals(ctx, _detail.Ctx)) Interlocked.Increment(ref _detail.OpenedPages);
         }
     }
 
@@ -155,12 +94,12 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
         
         if (_opt.IsolationMode == ContextIsolationMode.Shared)
         {
-            if (ReferenceEquals(ctx, _sharedCtx)) Interlocked.Decrement(ref _sharedActivePages);
+            if (ReferenceEquals(ctx, _shared.Ctx)) Interlocked.Decrement(ref _shared.ActivePages);
         }
         else
         {
-            if (ReferenceEquals(ctx, _searchCtx)) Interlocked.Decrement(ref _searchActivePages);
-            else if (ReferenceEquals(ctx, _detailCtx)) Interlocked.Decrement(ref _detailActivePages);
+            if (ReferenceEquals(ctx, _search.Ctx)) Interlocked.Decrement(ref _search.ActivePages);
+            else if (ReferenceEquals(ctx, _detail.Ctx)) Interlocked.Decrement(ref _detail.ActivePages);
         }
     }
 
@@ -171,11 +110,11 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
         
         if (_opt.IsolationMode == ContextIsolationMode.Shared)
         {
-            _sharedFlagged = true;
+            _shared.Flagged = true;
         }
         else
         {
-            if (forDetail) _detailFlagged = true; else _searchFlagged = true;
+            if (forDetail) _detail.Flagged = true; else _search.Flagged = true;
         }
     }
 
@@ -187,49 +126,45 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
     public async Task ForceRotateContextAsync(bool forDetail)
     {
         ThrowIfDisposed();
-        
+
         await _contextLock.WaitAsync().ConfigureAwait(false);
         try
         {
             if (_opt.IsolationMode == ContextIsolationMode.Shared)
-            {
-                // Close existing context immediately
-                await SafeCloseAsync(_sharedCtx);
-                _sharedCtx = await NewIsolatedContextAsync();
-                _sharedBirth = DateTime.UtcNow;
-                _sharedOpenedPages = 0;
-                _sharedActivePages = 0;
-                _sharedFlagged = false;
-                _logger.LogResourceEvent("BrowserContext", "Force rotated (Shared)");
-            }
+                await ResetSlotAsync(_shared, "Shared", "Force rotated");
+            else if (forDetail)
+                await ResetSlotAsync(_detail, "Detail", "Force rotated");
             else
-            {
-                if (!forDetail)
-                {
-                    await SafeCloseAsync(_searchCtx);
-                    _searchCtx = await NewIsolatedContextAsync();
-                    _searchBirth = DateTime.UtcNow;
-                    _searchOpenedPages = 0;
-                    _searchActivePages = 0;
-                    _searchFlagged = false;
-                    _logger.LogResourceEvent("BrowserContext", "Force rotated (Search)");
-                }
-                else
-                {
-                    await SafeCloseAsync(_detailCtx);
-                    _detailCtx = await NewIsolatedContextAsync();
-                    _detailBirth = DateTime.UtcNow;
-                    _detailOpenedPages = 0;
-                    _detailActivePages = 0;
-                    _detailFlagged = false;
-                    _logger.LogResourceEvent("BrowserContext", "Force rotated (Detail)");
-                }
-            }
+                await ResetSlotAsync(_search, "Search", "Force rotated");
         }
         finally
         {
             _contextLock.Release();
         }
+    }
+
+    /// <summary>Resets a slot: closes old context, creates fresh one, resets counters.</summary>
+    private async Task ResetSlotAsync(ContextSlotState slot, string label, string action)
+    {
+        await SafeCloseAsync(slot.Ctx);
+        slot.Ctx = await NewIsolatedContextAsync();
+        slot.Birth = DateTime.UtcNow;
+        slot.OpenedPages = 0;
+        slot.ActivePages = 0;
+        slot.Flagged = false;
+        _logger.LogResourceEvent("BrowserContext", $"{action} ({label})");
+    }
+
+    /// <summary>Ensures a slot has a live context (creating/rotating as needed) and increments ActivePages.</summary>
+    private async Task<IBrowserContext> EnsureSlotContextAsync(ContextSlotState slot, string label)
+    {
+        bool alive = slot.Ctx?.Browser?.IsConnected ?? false;
+        if (!alive || (ShouldRotate(slot.Birth, slot.OpenedPages, slot.Flagged) && slot.ActivePages == 0))
+        {
+            await ResetSlotAsync(slot, label, "Created");
+        }
+        Interlocked.Increment(ref slot.ActivePages);
+        return slot.Ctx!;
     }
 
     private bool ShouldRotate(DateTime birth, int openedPages, bool flagged)
@@ -328,13 +263,13 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
                 {
                     await ctx.AddCookiesAsync(savedCookies);
                     _logger.LogSuccess("CookiePersistence",
-                        "已加载 cookies 到新上下文",
+                        "Loaded cookies into new context",
                         savedCookies.Count);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug("CookiePersistence", "加载 cookies 失败, 继续使用空上下文", null, ex);
+                _logger.LogDebug("CookiePersistence", "Failed to load cookies, continuing with empty context", null, ex);
             }
         }
 
@@ -355,21 +290,21 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
                 // Close all browser contexts
                 var closeTasks = new List<Task>();
                 
-                if (_sharedCtx != null)
+                if (_shared.Ctx != null)
                 {
-                    closeTasks.Add(SafeCloseAsync(_sharedCtx));
+                    closeTasks.Add(SafeCloseAsync(_shared.Ctx));
                     _logger.LogResourceEvent("BrowserContext", "Disposing (Shared)");
                 }
-                
-                if (_searchCtx != null)
+
+                if (_search.Ctx != null)
                 {
-                    closeTasks.Add(SafeCloseAsync(_searchCtx));
+                    closeTasks.Add(SafeCloseAsync(_search.Ctx));
                     _logger.LogResourceEvent("BrowserContext", "Disposing (Search)");
                 }
-                
-                if (_detailCtx != null)
+
+                if (_detail.Ctx != null)
                 {
-                    closeTasks.Add(SafeCloseAsync(_detailCtx));
+                    closeTasks.Add(SafeCloseAsync(_detail.Ctx));
                     _logger.LogResourceEvent("BrowserContext", "Disposing (Detail)");
                 }
 
@@ -379,9 +314,9 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
                     await Task.WhenAll(closeTasks).ConfigureAwait(false);
                 }
 
-                _sharedCtx = null;
-                _searchCtx = null;
-                _detailCtx = null;
+                _shared.Ctx = null;
+                _search.Ctx = null;
+                _detail.Ctx = null;
             }
             finally
             {
@@ -434,5 +369,15 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
         {
              /* ignore close errors */
         }
+    }
+
+    /// <summary>Encapsulates per-context lifecycle state for one isolation slot.</summary>
+    private sealed class ContextSlotState
+    {
+        public IBrowserContext? Ctx;
+        public DateTime Birth = DateTime.MinValue;
+        public volatile int OpenedPages;
+        public volatile int ActivePages;
+        public volatile bool Flagged;
     }
 }

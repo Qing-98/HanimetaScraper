@@ -70,7 +70,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         _antiBotHook = antiBotHook;
         _useContextManager = true;
         
-        // 初始化手动挑战处理器
+        // Initialize manual challenge handler
         _manualChallengeHandler = new ManualChallengeHandler(logger, challengeDetector);
     }
 

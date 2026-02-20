@@ -91,7 +91,7 @@ public static class ProviderRegistry
         {
             return await HandleSearchRequest(
                 sp, config, title, max, logger, providerName, cacheKey, ct);
-        });
+        }).WithName($"{providerName}Search").WithTags(providerName);
 
         // Detail endpoint: GET /api/{prefix}/{id}
         app.MapGet($"/api/{routePrefix}/{{id}}", async (
@@ -101,7 +101,7 @@ public static class ProviderRegistry
         {
             return await HandleDetailRequest(
                 sp, config, id, logger, providerName, cacheKey, ct);
-        });
+        }).WithName($"{providerName}Detail").WithTags(providerName);
     }
 
     #region Request Handlers
@@ -120,6 +120,11 @@ public static class ProviderRegistry
         var limiter = sp.GetRequiredKeyedService<ProviderConcurrencyLimiter>($"{providerName}ConcurrencyLimiter");
         var rateLimiter = sp.GetRequiredKeyedService<ProviderRateLimiter>($"{providerName}RateLimiter");
         var cache = sp.GetRequiredService<MetadataCache>();
+
+        if (string.IsNullOrWhiteSpace(title))
+            return Results.Json(ApiResponse<List<Metadata>>.Fail("Title parameter is required"), statusCode: 400);
+        if (title.Length > 200)
+            return Results.Json(ApiResponse<List<Metadata>>.Fail("Title parameter too long (max 200 characters)"), statusCode: 400);
 
         var maxResults = Math.Min(max ?? 12, 50);
         logger.LogAlways($"{providerName}Search", $"Searching: '{title}' (max: {maxResults})");
@@ -162,7 +167,7 @@ public static class ProviderRegistry
         catch (Exception ex)
         {
             logger.LogFailure($"{providerName}Search", $"Search error: {ex.Message}", title, ex);
-            return Results.Json(ApiResponse<List<Metadata>>.Fail($"Search error: {ex.Message}"));
+            return Results.Json(ApiResponse<List<Metadata>>.Fail($"Search error: {ex.Message}"), statusCode: 500);
         }
 
         if (hits.Count == 0)
@@ -215,7 +220,7 @@ public static class ProviderRegistry
         catch (Exception ex)
         {
             logger.LogFailure($"{providerName}Search", $"Detail fetch error: {ex.Message}", title, ex);
-            return Results.Json(ApiResponse<List<Metadata>>.Fail($"Detail fetch error: {ex.Message}"));
+            return Results.Json(ApiResponse<List<Metadata>>.Fail($"Detail fetch error: {ex.Message}"), statusCode: 500);
         }
 
         var validResults = results.Where(r => r != null).Select(r => r!).ToList();
@@ -242,7 +247,7 @@ public static class ProviderRegistry
         if (!provider.TryParseId(id, out var parsedId))
         {
             logger.LogAlways($"{providerName}Detail", $"Invalid ID format: {id}");
-            return Results.Json(ApiResponse<Metadata>.Fail($"Invalid {providerName} ID: {id}"));
+            return Results.Json(ApiResponse<Metadata>.Fail($"Invalid {providerName} ID: {id}"), statusCode: 400);
         }
 
         try
@@ -279,7 +284,7 @@ public static class ProviderRegistry
         catch (Exception ex)
         {
             logger.LogFailure($"{providerName}Detail", $"Detail error: {ex.Message}", id, ex);
-            return Results.Json(ApiResponse<Metadata>.Fail($"Detail error: {ex.Message}"));
+            return Results.Json(ApiResponse<Metadata>.Fail($"Detail error: {ex.Message}"), statusCode: 500);
         }
     }
 

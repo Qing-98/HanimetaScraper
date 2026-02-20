@@ -119,7 +119,33 @@ namespace Jellyfin.Plugin.Hanimeta.Client
                         continue;
                     }
 
-                    // For other HTTP errors, throw immediately without retry (Problem 18: Network errors throw)
+                    // Handle 400: invalid request — bad input, no point retrying
+                    if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    {
+                        var error = await this.ReadErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+                        this.logger.LogWarningIfEnabled($"Search bad request (400) for title '{title}': {error}");
+                        RecordSuccess(stopwatch.ElapsedMilliseconds);
+                        return Array.Empty<TSearchResult>();
+                    }
+
+                    // Handle 404: no content found — treat as empty results
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        this.logger.LogDebugIfEnabled($"Search returned 404 (no results) for title: {title}");
+                        RecordSuccess(stopwatch.ElapsedMilliseconds);
+                        return Array.Empty<TSearchResult>();
+                    }
+
+                    // Handle 500: backend server error — return empty, do not retry
+                    if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+                    {
+                        var error = await this.ReadErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+                        this.logger.LogWarningIfEnabled($"Backend server error (500) for search '{title}': {error}");
+                        RecordFailure();
+                        return Array.Empty<TSearchResult>();
+                    }
+
+                    // For all remaining HTTP errors (e.g. 503), throw immediately without retry
                     response.EnsureSuccessStatusCode();
                     
                     var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -143,7 +169,7 @@ namespace Jellyfin.Plugin.Hanimeta.Client
                 catch (OperationCanceledException)
                 {
                     this.logger.LogDebugIfEnabled($"Search cancelled for title: {title}");
-                    RecordFailure(); // Problem 15: Track cancellation as failure
+                    RecordFailure(); // Problem 15: Track failure
                     throw; // Problem 18: Cancellation throws
                 }
                 catch (HttpRequestException ex)
@@ -397,7 +423,33 @@ namespace Jellyfin.Plugin.Hanimeta.Client
                         continue;
                     }
 
-                    // For other HTTP errors, throw immediately without retry (Problem 18: Network errors throw)
+                    // Handle 400: invalid ID format — no point retrying
+                    if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    {
+                        var error = await this.ReadErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+                        this.logger.LogWarningIfEnabled($"Get metadata bad request (400) for ID '{id}': {error}");
+                        RecordSuccess(stopwatch.ElapsedMilliseconds);
+                        return null;
+                    }
+
+                    // Handle 404: content not found — return null gracefully
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        this.logger.LogDebugIfEnabled($"Content not found (404) for ID: {id}");
+                        RecordSuccess(stopwatch.ElapsedMilliseconds);
+                        return null;
+                    }
+
+                    // Handle 500: backend server error — return null, do not retry
+                    if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+                    {
+                        var error = await this.ReadErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
+                        this.logger.LogWarningIfEnabled($"Backend server error (500) for ID '{id}': {error}");
+                        RecordFailure();
+                        return null;
+                    }
+
+                    // For all remaining HTTP errors (e.g. 503), throw immediately without retry
                     response.EnsureSuccessStatusCode();
 
                     var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -452,6 +504,26 @@ namespace Jellyfin.Plugin.Hanimeta.Client
             RecordFailure(); // Problem 15: Track failure
             this.logger.LogDebugIfEnabled($"Get metadata cancelled for ID: {id} after {attempt} attempts");
             return null;
+        }
+
+        /// <summary>
+        /// Reads the error message from an API error response body.
+        /// Attempts to extract the "error" field from the ApiResponse JSON envelope.
+        /// </summary>
+        private async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken ct)
+        {
+            try
+            {
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("error", out var errProp))
+                    return errProp.GetString() ?? body;
+                return body;
+            }
+            catch
+            {
+                return response.ReasonPhrase ?? "Unknown error";
+            }
         }
     }
 
