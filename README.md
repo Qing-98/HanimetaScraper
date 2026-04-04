@@ -1,375 +1,165 @@
 # HanimetaScraper
 
-[中文](#chinese) | [English](#english)
+[中文](#中文) | [English](#english)
 
 ---
-
-<a name="chinese"></a>
 
 ## 中文
 
-为 Jellyfin 提供的 Hanime 和 DLsite 元数据解决方案。
+HanimetaScraper 是一个为 Jellyfin 提供元数据的项目，包含：
 
-### 📋 项目结构
+- `ScraperBackendService`：后端抓取服务（Hanime / DLsite）
+- `Jellyfin.Plugin.Hanimeta`：Jellyfin 插件（前端接入层）
+- `Test/NewScraperTest`：后端接口测试工具
 
-```
-├── ScraperBackendService/     # 后端服务（Playwright）
-├── Jellyfin.Plugin.Hanimeta/  # Jellyfin 插件
-└── Test/NewScraperTest/       # 测试
-```
+### 项目结构
 
-### ✨ 功能
-
-- 🔍 智能搜索 - 标题/ID 搜索
-- 📊 元数据提取 - 标题、描述、评分、演员
-- 🖼️ 图像管理 - 封面、背景、缩略图
-- 🛡️ 反检测 - Playwright 反机器人
-- ⚡ 性能优化 - 缓存、并发控制、速率限制
-
-### 🚀 快速开始
-
-#### 1. 安装后端服务
-
-**预构建包（推荐）：**
-
-1. 下载 [Releases](https://github.com/Qing-98/HanimetaScraper/releases)
-2. 安装后端服务：
-   ```bash
-   unzip ScraperBackendService-x.x.x.zip && cd backend
-   ./install-playwright.sh  # 或 install-playwright.bat (Windows)
-   ./start-backend.sh       # 或 start-backend.bat (Windows)
-   ```
-
-**源码构建：**
-
-```bash
-dotnet build
-dotnet tool install --global Microsoft.Playwright.CLI
-playwright install chromium --with-deps
-cd ScraperBackendService && dotnet run
+```text
+HanimetaScraper/
+├─ ScraperBackendService/
+├─ Jellyfin.Plugin.Hanimeta/
+└─ Test/NewScraperTest/
 ```
 
-#### 2. 安装 Jellyfin 插件
+### 快速部署（后端）
 
-**方式 A: 自动安装（推荐）**
+1. 安装 .NET 9 SDK/Runtime
+2. 安装 Playwright 运行依赖：
+   - `dotnet tool install --global Microsoft.Playwright.CLI`
+   - `playwright install chromium --with-deps`
+3. 启动后端：
+   - `cd ScraperBackendService`
+   - `dotnet run`
 
-1. 打开 Jellyfin 管理面板
-2. 导航到 **控制台** → **插件** → **存储库**
-3. 点击 **+** 添加新存储库
-4. 输入以下信息：
-   - **存储库名称**: `Hanimeta Official`
-   - **存储库 URL**: `https://raw.githubusercontent.com/Qing-98/HanimetaScraper/main/repository.json`
-5. 点击 **保存**
-6. 返回 **插件** → **目录**
-7. 在列表中找到 **Hanimeta** 插件并点击 **安装**
-8. 重启 Jellyfin
+默认监听：`http://0.0.0.0:8585`
 
-**方式 B: 手动安装**
+### 后端关键设置
 
-如果自动安装失败，可以手动下载并安装：
+配置文件：`ScraperBackendService/appsettings.json`
 
-```bash
-# 下载最新版本
-wget https://github.com/Qing-98/HanimetaScraper/releases/latest/download/Jellyfin.Plugin.Hanimeta.zip
+核心项：
 
-# 停止 Jellyfin
-sudo systemctl stop jellyfin
+- `Port` / `Host`
+- `AuthToken` / `TokenHeaderName`
+- `MaxConcurrentRequests` / `RateLimitSeconds`
+- `RequestTimeoutSeconds`
+- `ChallengeAutoWaitSeconds` / `ChallengeAutoWaitSlowSeconds`
+- `EnableManualChallengeResolution`
+- `EnableCookiePersistence`
+- `CacheTtlMinutes` / `CacheNullResultTtlMinutes` / `CacheSizeLimitEntries`
 
-# 解压到插件目录
-unzip Jellyfin.Plugin.Hanimeta.zip -d /var/lib/jellyfin/plugins/Hanimeta/
+环境变量覆盖：
 
-# 启动 Jellyfin
-sudo systemctl start jellyfin
-```
+- `SCRAPER_PORT`
+- `SCRAPER_AUTH_TOKEN`
 
-#### 3. 配置插件
+### Jellyfin 插件配置（前端）
 
-在 Jellyfin 管理面板中：
+在 Jellyfin 后台打开插件配置页，至少设置：
 
-1. 导航到 **控制台** → **插件** → **Hanimeta**
-2. 配置以下项：
-   - **后端地址**: `http://127.0.0.1:8585`（如果后端在远程服务器，请修改为相应地址）
-   - **API Token**: （可选，如果后端配置了认证）
-   - **启用日志**: 建议开启以便排查问题
-3. 点击 **保存**
+- `Backend URL`（默认 `http://127.0.0.1:8585`）
+- `API Token`（当后端启用 `AuthToken` 时必填）
+- `Enable Logging`（排查问题时建议开启）
+- `Tag Mapping Mode`（Tags / Genres）
 
-#### 4. 测试配置
+### 后端 API（总览）
 
-1. 在媒体库中添加 Hanime 或 DLsite 内容
-2. 右键点击媒体文件 → **识别** → 选择 **Hanimeta** 提供商
-3. 搜索并匹配元数据
+- `GET /`
+- `GET /health`
+- `GET /cache/stats`
+- `DELETE /cache/clear`
+- `DELETE /cache/{provider}/{id}`
+- `GET /api/hanime/search?title={query}&max={limit}`
+- `GET /api/hanime/{id}`
+- `GET /api/dlsite/search?title={query}&max={limit}`
+- `GET /api/dlsite/{id}`
+- `GET /r/dlsite/{id}`
 
-### 🔄 自动更新
+> 认证说明：当 `AuthToken` 非空时，`/api/*` 和 `/cache/*` 需要在 `TokenHeaderName` 头中携带 Token。
 
-通过插件仓库安装后，Jellyfin 会自动检测并提示新版本更新。你也可以手动检查更新：
+### 子文档
 
-1. 导航到 **控制台** → **插件** → **已安装**
-2. 如果有新版本，会显示 **更新可用**
-3. 点击 **更新** 并重启 Jellyfin
-
-### ⚙️ 配置
-
-编辑 `ScraperBackendService/appsettings.json`：
-
-```json
-{
-  "ServiceConfig": {
-    "Port": 8585,
-    "MaxConcurrentRequests": 3,
-    "RateLimitSeconds": 20,
-    "RequestTimeoutSeconds": 180
-  }
-}
-```
-
-**配置说明：**
-
-| 配置项 | 描述 | 默认值 | 推荐范围 |
-|--------|------|--------|----------|
-| `Port` | HTTP 监听端口 | 8585 | 1024-65535 |
-| `Host` | 监听地址 | "0.0.0.0" | 127.0.0.1（本地）/0.0.0.0（所有） |
-| `AuthToken` | API 认证令牌 | "" | 强随机字符串（生产环境必须） |
-| `MaxConcurrentRequests` | 全局并发槽位数 | 3 | 1-10 |
-| `RateLimitSeconds` | 全局速率限制（秒） | 20 | 10-60 |
-| `RequestTimeoutSeconds` | 请求超时（秒） | 180 | 90-300 |
-
-> **注意**：并发和速率限制对所有提供商（Hanime、DLsite）统一生效。
-
-**性能调优：**
-
-```json
-// 个人使用
-{ "MaxConcurrentRequests": 3, "RateLimitSeconds": 20 }
-
-// 多用户
-{ "MaxConcurrentRequests": 10, "RateLimitSeconds": 20 }
-
-// 保守（避免封禁）
-{ "MaxConcurrentRequests": 1, "RateLimitSeconds": 60 }
-```
-
-### 📋 系统要求
-
-- .NET 9 Runtime/SDK
-- Jellyfin 10.10.7+
-- Playwright - Chromium（约 100MB）
-- 4GB RAM（推荐 8GB）
-- Linux/Windows/macOS
-
-### 🆘 故障排除
-
-**Playwright 未找到：**
-```bash
-dotnet tool install --global Microsoft.Playwright.CLI
-playwright install chromium --with-deps
-```
-
-**后端无法启动：**
-```bash
-dotnet --version  # 检查 .NET
-playwright install chromium  # 重装 Playwright
-```
-
-**插件未加载：**
-1. 验证后端运行：`http://127.0.0.1:8585`
-2. 检查插件配置
-3. 查看 Jellyfin 日志
-
-### 📖 文档
-
-- [后端服务详细文档](ScraperBackendService/README.md)
-- [贡献指南](CONTRIBUTING.md)
-- [MIT License](LICENSE)
-
-### 📞 支持
-
-- [Issues](https://github.com/Qing-98/HanimetaScraper/issues)
-- [Discussions](https://github.com/Qing-98/HanimetaScraper/discussions)
+- 后端说明：`ScraperBackendService/README.md`
+- 插件说明：`Jellyfin.Plugin.Hanimeta/README.md`
+- 测试说明：`Test/NewScraperTest/README.md`
 
 ---
-
-<a name="english"></a>
 
 ## English
 
-Unified metadata solution for Jellyfin supporting Hanime and DLsite content.
+HanimetaScraper provides Jellyfin metadata through:
 
-### 📋 Structure
+- `ScraperBackendService`: backend scraper service (Hanime / DLsite)
+- `Jellyfin.Plugin.Hanimeta`: Jellyfin plugin (frontend integration layer)
+- `Test/NewScraperTest`: backend API test runner
 
-```
-├── ScraperBackendService/     # Backend service (Playwright)
-├── Jellyfin.Plugin.Hanimeta/  # Jellyfin plugin
-└── Test/NewScraperTest/       # Tests
-```
+### Structure
 
-### ✨ Features
-
-- 🔍 Smart search - Title/ID search
-- 📊 Metadata extraction - Title, description, rating, cast
-- 🖼️ Image management - Cover, backdrop, thumbnails
-- 🛡️ Anti-detection - Playwright anti-bot
-- ⚡ Performance - Caching, concurrency, rate limiting
-
-### 🚀 Quick Start
-
-#### 1. Install Backend Service
-
-**Prebuilt Package (Recommended):**
-
-1. Download [Releases](https://github.com/Qing-98/HanimetaScraper/releases)
-2. Install backend:
-   ```bash
-   unzip ScraperBackendService-x.x.x.zip && cd backend
-   ./install-playwright.sh  # or install-playwright.bat (Windows)
-   ./start-backend.sh       # or start-backend.bat (Windows)
-   ```
-
-**Build from Source:**
-
-```bash
-dotnet build
-dotnet tool install --global Microsoft.Playwright.CLI
-playwright install chromium --with-deps
-cd ScraperBackendService && dotnet run
+```text
+HanimetaScraper/
+├─ ScraperBackendService/
+├─ Jellyfin.Plugin.Hanimeta/
+└─ Test/NewScraperTest/
 ```
 
-#### 2. Install Jellyfin Plugin
+### Quick Deployment (Backend)
 
-**Method A: Automatic Installation (Recommended)**
+1. Install .NET 9 SDK/Runtime
+2. Install Playwright runtime dependencies:
+   - `dotnet tool install --global Microsoft.Playwright.CLI`
+   - `playwright install chromium --with-deps`
+3. Start backend:
+   - `cd ScraperBackendService`
+   - `dotnet run`
 
-1. Open Jellyfin Dashboard
-2. Navigate to **Dashboard** → **Plugins** → **Repositories**
-3. Click **+** to add a new repository
-4. Enter the following information:
-   - **Repository Name**: `Hanimeta Official`
-   - **Repository URL**: `https://raw.githubusercontent.com/Qing-98/HanimetaScraper/main/repository.json`
-5. Click **Save**
-6. Go to **Plugins** → **Catalog**
-7. Find **Hanimeta** in the list and click **Install**
-8. Restart Jellyfin
+Default listen URL: `http://0.0.0.0:8585`
 
-**Method B: Manual Installation**
+### Backend Key Settings
 
-If automatic installation fails, you can install manually:
+Config file: `ScraperBackendService/appsettings.json`
 
-```bash
-# Download latest release
-wget https://github.com/Qing-98/HanimetaScraper/releases/latest/download/Jellyfin.Plugin.Hanimeta.zip
+Core options:
 
-# Stop Jellyfin
-sudo systemctl stop jellyfin
+- `Port` / `Host`
+- `AuthToken` / `TokenHeaderName`
+- `MaxConcurrentRequests` / `RateLimitSeconds`
+- `RequestTimeoutSeconds`
+- `ChallengeAutoWaitSeconds` / `ChallengeAutoWaitSlowSeconds`
+- `EnableManualChallengeResolution`
+- `EnableCookiePersistence`
+- `CacheTtlMinutes` / `CacheNullResultTtlMinutes` / `CacheSizeLimitEntries`
 
-# Extract to plugins directory
-unzip Jellyfin.Plugin.Hanimeta.zip -d /var/lib/jellyfin/plugins/Hanimeta/
+Environment overrides:
 
-# Start Jellyfin
-sudo systemctl start jellyfin
-```
+- `SCRAPER_PORT`
+- `SCRAPER_AUTH_TOKEN`
 
-#### 3. Configure Plugin
+### Jellyfin Plugin Configuration (Frontend)
 
-In Jellyfin Dashboard:
+In Jellyfin plugin settings, configure at least:
 
-1. Navigate to **Dashboard** → **Plugins** → **Hanimeta**
-2. Configure the following:
-   - **Backend URL**: `http://127.0.0.1:8585` (change if backend is on remote server)
-   - **API Token**: (optional, if backend requires authentication)
-   - **Enable Logging**: Recommended for troubleshooting
-3. Click **Save**
+- `Backend URL` (default `http://127.0.0.1:8585`)
+- `API Token` (required when backend `AuthToken` is enabled)
+- `Enable Logging` (recommended for troubleshooting)
+- `Tag Mapping Mode` (Tags / Genres)
 
-#### 4. Test Configuration
+### Backend API (Overview)
 
-1. Add Hanime or DLsite content to your library
-2. Right-click media file → **Identify** → Select **Hanimeta** provider
-3. Search and match metadata
+- `GET /`
+- `GET /health`
+- `GET /cache/stats`
+- `DELETE /cache/clear`
+- `DELETE /cache/{provider}/{id}`
+- `GET /api/hanime/search?title={query}&max={limit}`
+- `GET /api/hanime/{id}`
+- `GET /api/dlsite/search?title={query}&max={limit}`
+- `GET /api/dlsite/{id}`
+- `GET /r/dlsite/{id}`
 
-### 🔄 Automatic Updates
+> Auth note: when `AuthToken` is set, `/api/*` and `/cache/*` require token in the `TokenHeaderName` header.
 
-After installing via plugin repository, Jellyfin will automatically detect and notify you of new version updates. You can also manually check for updates:
+### Sub Documents
 
-1. Navigate to **Dashboard** → **Plugins** → **Installed**
-2. If a new version is available, you'll see **Update Available**
-3. Click **Update** and restart Jellyfin
-
-### ⚙️ Configuration
-
-编辑 `ScraperBackendService/appsettings.json`：
-
-```json
-{
-  "ServiceConfig": {
-    "Port": 8585,
-    "MaxConcurrentRequests": 3,
-    "RateLimitSeconds": 20,
-    "RequestTimeoutSeconds": 180
-  }
-}
-```
-
-**Configuration Options:**
-
-| Setting | Description | Default | Recommended |
-|---------|-------------|---------|-------------|
-| `Port` | HTTP listening port | 8585 | 1024-65535 |
-| `Host` | Listening address | "0.0.0.0" | 127.0.0.1 (local)/0.0.0.0 (all) |
-| `AuthToken` | API auth token | "" | Strong random string (production required) |
-| `MaxConcurrentRequests` | Global concurrency slots | 3 | 1-10 |
-| `RateLimitSeconds` | Global rate limit (seconds) | 20 | 10-60 |
-| `RequestTimeoutSeconds` | Request timeout (seconds) | 180 | 90-300 |
-
-> **Note**: Concurrency and rate limit apply globally to all providers (Hanime, DLsite).
-
-**Performance Tuning:**
-
-```json
-// Personal use
-{ "MaxConcurrentRequests": 3, "RateLimitSeconds": 20 }
-
-// Multi-user
-{ "MaxConcurrentRequests": 10, "RateLimitSeconds": 20 }
-
-// Conservative (avoid blocking)
-{ "MaxConcurrentRequests": 1, "RateLimitSeconds": 60 }
-```
-
-### 📋 系统要求
-
-- .NET 9 Runtime/SDK
-- Jellyfin 10.10.7+
-- Playwright - Chromium（约 100MB）
-- 4GB RAM（推荐 8GB）
-- Linux/Windows/macOS
-
-### 🆘 故障排除
-
-**Playwright 未找到：**
-```bash
-dotnet tool install --global Microsoft.Playwright.CLI
-playwright install chromium --with-deps
-```
-
-**后端无法启动：**
-```bash
-dotnet --version  # 检查 .NET
-playwright install chromium  # 重装 Playwright
-```
-
-**插件未加载：**
-1. 验证后端运行：`http://127.0.0.1:8585`
-2. 检查插件配置
-3. 查看 Jellyfin 日志
-
-### 📖 文档
-
-- [后端服务详细文档](ScraperBackendService/README.md)
-- [贡献指南](CONTRIBUTING.md)
-- [MIT License](LICENSE)
-
-### 📞 支持
-
-- [Issues](https://github.com/Qing-98/HanimetaScraper/issues)
-- [Discussions](https://github.com/Qing-98/HanimetaScraper/discussions)
-
----
-
-**Repository**: [HanimetaScraper](https://github.com/Qing-98/HanimetaScraper) | **License**: MIT
+- Backend: `ScraperBackendService/README.md`
+- Plugin: `Jellyfin.Plugin.Hanimeta/README.md`
+- Tests: `Test/NewScraperTest/README.md`
