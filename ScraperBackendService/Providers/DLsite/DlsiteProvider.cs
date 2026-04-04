@@ -115,7 +115,7 @@ public sealed class DlsiteProvider : IMediaProvider
     /// </remarks>
     /// <example>
     /// // Search with Japanese keyword
-    /// var results = await provider.SearchAsync("恋爱", 5, CancellationToken.None);
+    /// var results = await provider.SearchAsync("romance", 5, CancellationToken.None);
     /// foreach (var hit in results)
     /// {
     ///     Console.WriteLine($"Title: {hit.Title}");
@@ -167,10 +167,13 @@ public sealed class DlsiteProvider : IMediaProvider
             if (maxResults > 0 && hits.Count >= maxResults) break;
         }
 
-        // Log search results - only log success, no results is handled by ProviderRegistry
         if (hits.Count > 0)
         {
-            _log.LogSuccessLite("DLsiteSearch", keyword);
+            _log.LogSuccess("DLsiteSearch", keyword, hits.Count);
+        }
+        else
+        {
+            _log.LogDebug("DLsiteSearch", "No search results found", keyword);
         }
 
         return hits;

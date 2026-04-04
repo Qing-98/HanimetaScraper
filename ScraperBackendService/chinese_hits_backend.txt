@@ -1,0 +1,171 @@
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:3: [中文](#chinese) | [English](#english)
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:9: ## 中文
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:11: HanimetaScraper 后端服务，提供 Hanime 和 DLsite 元数据 REST API。
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:13: ### 功能
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:15: - 多提供商支持 - Hanime、DLsite 统一接口
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:16: - RESTful API - 标准化 JSON 响应
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:17: - 反机器人 - Playwright 隐身模式
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:18: - 智能缓存 - LRU 策略
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:19: - 并发控制 - 全局并发限制
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:20: - 速率限制 - 每槽独立速率控制
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:21: - 身份验证 - 可选 API Token
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:23: ### API 端点
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:25: **基础：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:26: - `GET /` - 服务信息
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:27: - `GET /health` - 健康检查
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:28: - `GET /cache/stats` - 缓存统计
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:29: - `DELETE /cache/clear` - 清空缓存
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:38: - `GET /r/dlsite/{id}` - 重定向
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:40: ### 配置
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:42: 编辑 `appsettings.json`：
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:57: **配置说明：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:59: | 配置项 | 描述 | 默认值 | 推荐范围 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:61: | `Port` | HTTP 监听端口 | 8585 | 1024-65535 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:62: | `Host` | 监听地址 | "0.0.0.0" | 127.0.0.1（本地）<br>0.0.0.0（所有接口） |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:63: | `AuthToken` | API 认证令牌 | "" | **强随机字符串**<br>（生产环境必须设置） |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:64: | `MaxConcurrentRequests` | 全局并发槽位数 | 3 | 1-10 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:65: | `RateLimitSeconds` | 全局速率限制（秒）<br>每槽最小请求间隔 | 20 | 10-60<br>0=禁用 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:66: | `RequestTimeoutSeconds` | 请求超时（秒） | 180 | 90-300 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:67: | `EnableAggressiveMemoryOptimization` | 激进内存优化<br>频繁 GC | true | true/false |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:68: | `ChallengeAutoWaitSeconds` | Cloudflare 挑战等待（秒）<br>首次尝试 | 20 | 10-30 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:69: | `ChallengeAutoWaitSlowSeconds` | Cloudflare 挑战等待（秒）<br>慢速重试 | 45 | 30-60 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:70: | `CacheTtlMinutes` | 成功结果的缓存时长（分钟） | 2 | 1-60 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:71: | `CacheNullResultTtlMinutes` | 未找到结果的缓存时长（分钟）<br>防止重复请求不存在的 ID | 2 | 1-10 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:72: | `CacheSizeLimitEntries` | 缓存最大条目数 | 100 | 50-500 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:74: > **重要**：`MaxConcurrentRequests` 和 `RateLimitSeconds` 对所有提供商（Hanime、DLsite）统一生效。
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:76: **并发与速率限制：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:78: - **并发控制**：限制同时访问的请求数
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:79: - 达到限制时等待最多 15 秒
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:80: - 超时返回 429 状态码
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:82: - **速率限制**：每个槽的最小请求间隔
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:83: - 缓存命中时绕过限制
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:84: - 设置为 0 禁用
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:85: - 每槽独立计时
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:87: **性能调优：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:90: // 个人使用
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:93: // 多用户
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:96: // 保守（避免封禁）
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:100: **环境变量：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:102: | 变量 | 对应配置 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:107: ### 部署
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:110: # 开发
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:113: # 生产
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:118: ### 监控
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:121: # 健康检查
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:124: # 缓存统计
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:127: # 清空缓存
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:131: ### 故障排除
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:133: | 问题 | 解决方案 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:135: | 503 Service Unavailable | 增加 `MaxConcurrentRequests` |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:136: | 请求超时 | 增加 `RequestTimeoutSeconds`<br>检查网络 |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:137: | 频繁 429 错误 | 减少 `RateLimitSeconds`<br>增加 `MaxConcurrentRequests` |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:138: | 内存占用高 | 启用 `EnableAggressiveMemoryOptimization` |
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:140: **日志级别：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:152: ### 安全
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:154: **生产部署：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:155: 1. 设置强 `AuthToken`
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:156: 2. 防火墙限制访问
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:157: 3. 使用 HTTPS（Nginx 反向代理）
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:158: 4. 监控日志
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:160: **Nginx 示例：**
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:176: ### 技术栈
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:178: - .NET 9 - 现代 C# 运行时
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:179: - ASP.NET Core - Web API 框架
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:180: - Playwright - 无头浏览器
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\README.md:181: - HtmlAgilityPack - HTML 解析
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:41: /// ???? Cookie ?洢
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:59: /// Cookie ?????洢????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:71: /// ???? Cookies ??????洢?????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:95: // ????洢??????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:103: /// ???? cookies ???????洢
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:132: // ??????滺??
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:150: // ???浽???
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:163: /// ??????洢????????????? cookies
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:176: // ?????滺????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:268: /// ??? Cookie ?洢??????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:292: _logger.LogDebug("CookiePersistence", "Cookie ?洢?????????,????????");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:351: /// ????洢??????
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:360: _logger.LogDebug("CookiePersistence", $"?????洢??: {_storageDirectory}");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\CookiePersistenceManager.cs:365: _logger.LogFailure("CookiePersistence", "?????洢?????", _storageDirectory, ex);
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:343: // 使用 EvaluateAsync 获取内容更稳定，且不容易像 ContentAsync 那样被某些反爬检测
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:346: // 检查是否还是挑战页
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:349: // 验证页面有有效内容
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:353: // 额外稳定性等待: 确认挑战不会再次出现
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:368: // 移除提示框
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:371: // 额外等待确保所有 cookies 都设置完成
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Browser\ManualChallengeHandler.cs:378: // 每10秒输出一次进度
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:6: /// For example, maps "声優" to ("Actor", "Voice Actor") or "監督" to ("Director", null).
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:21: ///             "声優" => ("Actor", "Voice Actor"),
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:22: ///             "監督" => ("Director", null),
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:23: ///             "脚本" => ("Writer", "Screenplay"),
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:36: /// The raw header text from the content provider website (e.g., "声優", "監督", "脚本").
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Abstractions\IRoleMapper.cs:46: /// var (type, role) = mapper.Map("声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\DateTimeNormalizer.cs:14: /// Parse Japanese date format: yyyy年M月d日
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\DateTimeNormalizer.cs:20: /// var date = ParseJapaneseYmd("2024年3月15日");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\DateTimeNormalizer.cs:23: /// var date2 = ParseJapaneseYmd("2023年12月1日");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:16: @"\[中文字幕\]|\[繁体字幕\]|\[简体字幕\]|\[英文字幕\]|\[日文字幕\]|\[Korean字幕\]|\[?????\]|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:17: @"\[?????\]|\[中文\]|\[繁体\]|\[简体\]|\[英文\]|\[日文\]|\[Korean\]|\[???\]|\[???\]|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:18: @"\(中文字幕\)|\(繁体字幕\)|\(简体字幕\)|\(英文字幕\)|\(日文字幕\)|\(Korean字幕\)|\(?????\)|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:19: @"\(?????\)|\(中文\)|\(繁体\)|\(简体\)|\(英文\)|\(日文\)|\(Korean\)|\(???\)|\(???\)|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:20: @"【中文字幕】|【繁体字幕】|【简体字幕】|【英文字幕】|【日文字幕】|【Korean字幕】|【?????】|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:21: @"【?????】|【中文】|【繁体】|【简体】|【英文】|【日文】|【Korean】|【???】|【???】|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:22: @"＜中文字幕＞|＜繁体字幕＞|＜简体字幕＞|＜英文字幕＞|＜日文字幕＞|＜Korean字幕＞|＜?????＞|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:23: @"＜?????＞|＜中文＞|＜繁体＞|＜简体＞|＜英文＞|＜日文＞|＜Korean＞|＜???＞|＜???＞",
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:31: @"\[字幕\]|\[SUB\]|\[DUB\]|\[RAW\]|\[无修正\]|\[有修正\]|\[修正版\]|\[无码\]|\[有码\]|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:32: @"\(字幕\)|\(SUB\)|\(DUB\)|\(RAW\)|\(无修正\)|\(有修正\)|\(修正版\)|\(无码\)|\(有码\)|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:33: @"【字幕】|【SUB】|【DUB】|【RAW】|【无修正】|【有修正】|【修正版】|【无码】|【有码】|" +
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:34: @"＜字幕＞|＜SUB＞|＜DUB＞|＜RAW＞|＜无修正＞|＜有修正＞|＜修正版＞|＜无码＞|＜有码＞",
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:51: /// var cleaned = TitleCleaner.CleanTitle("Example Title [中文字幕]");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:54: /// var cleaned2 = TitleCleaner.CleanTitle("[繁体字幕] Another Title (中文字幕)");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Normalize\TitleCleaner.cs:57: /// var cleaned3 = TitleCleaner.CleanTitle("Title [SUB] [RAW] [无码]");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:27: /// PeopleEx.AddPersonWithOriginalRole(metadata, "山田太郎", "声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:30: /// var (englishType, role) = PeopleEx.MapStaffRole("監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:46: /// <param name="header">Japanese role name (e.g., "声優", "監督", "シナリオ")</param>
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:50: /// - Voice acting roles: "声優" → "Actor"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:51: /// - Direction roles: "監督" → "Director"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:57: /// var (type, role) = MapStaffRole("声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:60: /// var (type2, role2) = MapStaffRole("監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:66: /// var (type4, role4) = MapStaffRole("音響監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:92: /// AddPerson(metadata, "田中花音", "Actor", "声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:95: /// AddPerson(metadata, "佐藤一郎", "Director", "監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:98: /// AddPerson(metadata, "鈴木次郎", "Writer", "シナリオ");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:101: /// AddPerson(metadata, "音楽家", "Composer", "音楽");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:104: /// AddPerson(metadata, "田中花音", "Actor", "声優"); // Will be deduplicated
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:126: /// - 声優 (Voice Actor) → Actor
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:127: /// - 監督 (Director) → Director
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:129: /// - 音楽 (Music) → Composer
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:141: /// // - Name: "田中花音", Type: "Actor", Role: "声優"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:142: /// // - Name: "佐藤監督", Type: "Director", Role: "監督"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:143: /// // - Name: "脚本家", Type: "Writer", Role: "シナリオ"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:214: /// AddPersonWithOriginalRole(metadata, "田中花音", "声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:217: /// AddPersonWithOriginalRole(metadata, "佐藤監督", "監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:220: /// AddPersonWithOriginalRole(metadata, "脚本太郎", "シナリオ");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Parsing\PeopleEx.cs:227: /// AddPersonWithOriginalRole(metadata, "", "声優"); // Skipped - empty name
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:268: if (header.Contains("監督") || header.Contains("ディレクター"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:272: if (header.Contains("シナリオ") || header.Contains("脚本"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:276: if (header.Contains("原画") || header.Contains("イラスト"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:280: if (header.Contains("制作") || header.Contains("企画") || header.Contains("プロデューサ"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:284: if (header.Contains("編集"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:288: if (header.Contains("音楽"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:292: if (header.Contains("声優") || header.Contains("出演者") || header.Contains("キャスト"))
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:302: /// Role: original role name (声優, 監督, etc.)
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:310: /// AddPerson(metadata, "田中花音", "Actor", "声優");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:313: /// AddPerson(metadata, "山田監督", "Director", "監督");
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:328: Role = originalRole           // Original role name (声優, 監督, etc.)
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:334: private static readonly Regex DateJpRegex = new(@"(\d{4})年(\d{1,2})月(\d{1,2})日", RegexOptions.Compiled);
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Core\Util\ScrapingUtils.cs:337: /// Parse Japanese date format: yyyy年M月d日
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\Metadata.cs:31: ///     Role = "声優"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\Metadata.cs:131: /// People.Add(new PersonDto { Name = "Director Name", Type = "Director", Role = "監督" });
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:13: ///     Name = "田中花音",
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:15: ///     Role = "声優"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:47: /// "田中花音", "John Smith", "山田太郎"
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:72: /// Role = "声優";        // Voice actor
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:73: /// Role = "監督";        // Director
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Models\PersonDto.cs:75: /// Role = "音響監督";     // Sound director
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\DLsite\DlsiteProvider.cs:118: /// var results = await provider.SearchAsync("恋爱", 5, CancellationToken.None);
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\DLsite\DlsiteProvider.cs:304: /// 7. Parses Japanese release dates (yyyy年M月d日 format)
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\DLsite\DlsiteProvider.cs:371: "//table[@id='work_maker']//tr[.//th[contains(normalize-space(.),'ブランド名') or contains(normalize-space(.),'サークル名')]]//td",
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\DLsite\DlsiteProvider.cs:391: // Extract release date (Japanese format: yyyy年M月d日)
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\DLsite\DlsiteProvider.cs:393: "//table[@id='work_outline']//tr[.//th[contains(normalize-space(.),'販売日')]]//td",
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\Hanime\HanimeProvider.cs:154: // Format: https://hanime1.me/search?query=keyword&type=&genre=&sort=最新上市&date=&duration=
+D:\zuozq\Project\Dotnet\HanimetaScraper\ScraperBackendService\Providers\Hanime\HanimeProvider.cs:158: var sortParam = $"sort={Uri.EscapeDataString("最新上市")}"; // Latest releases sorting

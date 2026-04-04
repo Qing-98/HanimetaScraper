@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 namespace ScraperBackendService.Browser;
 
 /// <summary>
-/// Cookie 持久化数据模型
+/// Cookie persistence data model
 /// </summary>
 public class PersistedCookie
 {
@@ -38,7 +38,7 @@ public class PersistedCookie
 }
 
 /// <summary>
-/// 域名 Cookie 存储
+/// Domain cookie store
 /// </summary>
 public class DomainCookieStore
 {
@@ -56,7 +56,7 @@ public class DomainCookieStore
 }
 
 /// <summary>
-/// Cookie 持久化存储容器
+/// Cookie persistence storage container
 /// </summary>
 public class CookieStorage
 {
@@ -68,7 +68,7 @@ public class CookieStorage
 }
 
 /// <summary>
-/// 管理 Cookies 的持久化存储和加载
+/// Manages persistent cookie storage and loading
 /// </summary>
 public class CookiePersistenceManager
 {
@@ -92,29 +92,29 @@ public class CookiePersistenceManager
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        // 确保存储目录存在
+        // Ensure storage directory exists
         EnsureStorageDirectory();
         
-        // 启动时加载已保存的 cookies
+        // Load previously saved cookies at startup
         _ = LoadFromFileAsync();
     }
 
     /// <summary>
-    /// 保存 cookies 到持久化存储
+    /// Saves cookies to persistent storage
     /// </summary>
-    /// <param name="domain">域名 (如 hanime.tv)</param>
-    /// <param name="cookies">要保存的 cookies</param>
+    /// <param name="domain">Domain name (e.g., hanime.tv)</param>
+    /// <param name="cookies">Cookies to save</param>
     public async Task SaveCookiesAsync(string domain, IReadOnlyList<BrowserContextCookiesResult> cookies)
     {
         if (string.IsNullOrWhiteSpace(domain))
         {
-            _logger.LogWarning("CookiePersistence", "域名为空,无法保存 cookies");
+            _logger.LogWarning("CookiePersistence", "Domain is empty, cannot save cookies");
             return;
         }
 
         try
         {
-            // 转换为持久化格式
+            // Convert to persistence format
             var persistedCookies = cookies
                 .Select(c => new PersistedCookie
                 {
@@ -129,7 +129,7 @@ public class CookiePersistenceManager
                 })
                 .ToList();
 
-            // 更新内存缓存
+            // Update in-memory cache
             var store = _memoryCache.AddOrUpdate(
                 domain,
                 _ => new DomainCookieStore
@@ -147,23 +147,23 @@ public class CookiePersistenceManager
                     return existing;
                 });
 
-            // 保存到文件
+            // Save to file
             await SaveToFileAsync();
 
             _logger.LogSuccess("CookiePersistence", 
-                $"已保存 {persistedCookies.Count} 个 cookies (域名: {domain}, 成功次数: {store.SuccessCount})");
+                $"Saved {persistedCookies.Count} cookies (domain: {domain}, success count: {store.SuccessCount})");
         }
         catch (Exception ex)
         {
-            _logger.LogFailure("CookiePersistence", "保存 cookies 失败", domain, ex);
+            _logger.LogFailure("CookiePersistence", "Failed to save cookies", domain, ex);
         }
     }
 
     /// <summary>
-    /// 从持久化存储加载指定域名的 cookies
+    /// Loads cookies for the specified domain from persistent storage
     /// </summary>
-    /// <param name="domain">域名</param>
-    /// <returns>该域名的 cookies,如果不存在返回空列表</returns>
+    /// <param name="domain">Domain name</param>
+    /// <returns>Cookies for the domain; returns an empty list if none exist</returns>
     public async Task<List<Microsoft.Playwright.Cookie>> LoadCookiesAsync(string domain)
     {
         if (string.IsNullOrWhiteSpace(domain))
@@ -173,15 +173,15 @@ public class CookiePersistenceManager
 
         try
         {
-            // 先从内存缓存读取
+            // Read from in-memory cache first
             if (_memoryCache.TryGetValue(domain, out var store))
             {
-                // 检查是否过期 (30天)
+                // Check expiration (30 days)
                 var age = DateTime.UtcNow - store.LastUpdated;
                 if (age.TotalDays > 30)
                 {
                     _logger.LogDebug("CookiePersistence", 
-                        $"域名 {domain} 的 cookies 已过期 ({age.TotalDays:F1}天), 将被清除");
+                        $"Cookies for domain {domain} have expired ({age.TotalDays:F1} days) and will be removed");
                     _memoryCache.TryRemove(domain, out _);
                     await SaveToFileAsync();
                     return new List<Microsoft.Playwright.Cookie>();
@@ -202,26 +202,26 @@ public class CookiePersistenceManager
                     .ToList();
 
                 _logger.LogSuccess("CookiePersistence",
-                    $"{domain} | 年龄: {age.TotalHours:F1}小时",
+                    $"{domain} | age: {age.TotalHours:F1} hours",
                     cookies.Count);
                 
                 return cookies;
             }
 
-            _logger.LogDebug("CookiePersistence", $"域名 {domain} 没有保存的 cookies");
+            _logger.LogDebug("CookiePersistence", $"No saved cookies for domain {domain}");
             return new List<Microsoft.Playwright.Cookie>();
         }
         catch (Exception ex)
         {
-            _logger.LogFailure("CookiePersistence", "加载 cookies 失败", domain, ex);
+            _logger.LogFailure("CookiePersistence", "Failed to load cookies", domain, ex);
             return new List<Microsoft.Playwright.Cookie>();
         }
     }
 
     /// <summary>
-    /// 获取所有域名的 cookies 用于应用到浏览器上下文
+    /// Loads cookies from all domains for browser-context application
     /// </summary>
-    /// <returns>所有域名的 cookies 合并列表</returns>
+    /// <returns>Merged cookie list from all domains</returns>
     public async Task<List<Microsoft.Playwright.Cookie>> LoadAllCookiesAsync()
     {
         var allCookies = new List<Microsoft.Playwright.Cookie>();
@@ -235,7 +235,7 @@ public class CookiePersistenceManager
         if (allCookies.Count > 0)
         {
             _logger.LogSuccess("CookiePersistence",
-                $"来自 {_memoryCache.Count} 个域名",
+                $"Loaded from {_memoryCache.Count} domains",
                 allCookies.Count);
         }
 
@@ -243,29 +243,29 @@ public class CookiePersistenceManager
     }
 
     /// <summary>
-    /// 清除指定域名的 cookies
+    /// Clears cookies for the specified domain
     /// </summary>
     public async Task ClearCookiesAsync(string domain)
     {
         if (_memoryCache.TryRemove(domain, out _))
         {
             await SaveToFileAsync();
-            _logger.LogSuccess("CookiePersistence", $"已清除域名 {domain} 的 cookies");
+            _logger.LogSuccess("CookiePersistence", $"Cleared cookies for domain {domain}");
         }
     }
 
     /// <summary>
-    /// 清除所有 cookies
+    /// Clears all cookies
     /// </summary>
     public async Task ClearAllCookiesAsync()
     {
         _memoryCache.Clear();
         await SaveToFileAsync();
-        _logger.LogSuccess("CookiePersistence", "已清除所有 cookies");
+        _logger.LogSuccess("CookiePersistence", "Cleared all cookies");
     }
 
     /// <summary>
-    /// 获取 Cookie 存储统计信息
+    /// Gets cookie storage statistics
     /// </summary>
     public Dictionary<string, object> GetStatistics()
     {
@@ -280,7 +280,7 @@ public class CookiePersistenceManager
     }
 
     /// <summary>
-    /// 从文件加载 cookies
+    /// Loads cookies from file
     /// </summary>
     private async Task LoadFromFileAsync()
     {
@@ -289,7 +289,7 @@ public class CookiePersistenceManager
         {
             if (!File.Exists(_storageFilePath))
             {
-                _logger.LogDebug("CookiePersistence", "Cookie 存储文件不存在,跳过加载");
+                _logger.LogDebug("CookiePersistence", "Cookie storage file does not exist, skipping load");
                 return;
             }
 
@@ -305,12 +305,12 @@ public class CookiePersistenceManager
                 }
 
                 _logger.LogSuccess("CookiePersistence", 
-                    $"从文件加载了 {storage.Domains.Count} 个域名的 cookies");
+                    $"Loaded cookies for {storage.Domains.Count} domains from file");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogFailure("CookiePersistence", "从文件加载 cookies 失败", _storageFilePath, ex);
+            _logger.LogFailure("CookiePersistence", "Failed to load cookies from file", _storageFilePath, ex);
         }
         finally
         {
@@ -319,7 +319,7 @@ public class CookiePersistenceManager
     }
 
     /// <summary>
-    /// 保存 cookies 到文件
+    /// Saves cookies to file
     /// </summary>
     private async Task SaveToFileAsync()
     {
@@ -335,11 +335,11 @@ public class CookiePersistenceManager
             await File.WriteAllTextAsync(_storageFilePath, json);
 
             _logger.LogDebug("CookiePersistence", 
-                $"已保存 {storage.Domains.Count} 个域名的 cookies 到文件");
+                $"Saved cookies for {storage.Domains.Count} domains to file");
         }
         catch (Exception ex)
         {
-            _logger.LogFailure("CookiePersistence", "保存 cookies 到文件失败", _storageFilePath, ex);
+            _logger.LogFailure("CookiePersistence", "Failed to save cookies to file", _storageFilePath, ex);
         }
         finally
         {
@@ -348,7 +348,7 @@ public class CookiePersistenceManager
     }
 
     /// <summary>
-    /// 确保存储目录存在
+    /// Ensures the storage directory exists
     /// </summary>
     private void EnsureStorageDirectory()
     {
@@ -357,17 +357,17 @@ public class CookiePersistenceManager
             if (!Directory.Exists(_storageDirectory))
             {
                 Directory.CreateDirectory(_storageDirectory);
-                _logger.LogDebug("CookiePersistence", $"创建存储目录: {_storageDirectory}");
+                _logger.LogDebug("CookiePersistence", $"Created storage directory: {_storageDirectory}");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogFailure("CookiePersistence", "创建存储目录失败", _storageDirectory, ex);
+            _logger.LogFailure("CookiePersistence", "Failed to create storage directory", _storageDirectory, ex);
         }
     }
 
     /// <summary>
-    /// 解析 SameSite 属性
+    /// Parses the SameSite attribute
     /// </summary>
     private static SameSiteAttribute ParseSameSite(string sameSite)
     {

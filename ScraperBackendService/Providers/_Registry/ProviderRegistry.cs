@@ -37,7 +37,7 @@ public static class ProviderRegistry
 
     /// <summary>
     /// Registers a provider with dependency injection container.
-    /// Sets up concurrency limiter, rate limiter, and provider instance.
+    /// Sets up concurrency limiter (with slot cooldown) and provider instance.
     /// </summary>
     public static void RegisterProvider(
         this IServiceCollection services,
@@ -46,19 +46,12 @@ public static class ProviderRegistry
     {
         var providerName = config.ProviderName;
 
-        // Create and register concurrency limiter
+        // Create and register concurrency limiter with slot cooldown
         var concurrencyLimiter = new ProviderConcurrencyLimiter(
-            serviceConfig.MaxConcurrentRequests, 
+            serviceConfig.MaxConcurrentRequests,
+            TimeSpan.FromSeconds(serviceConfig.RateLimitSeconds),
             providerName);
-        services.AddSingleton(concurrencyLimiter);
         services.AddKeyedSingleton($"{providerName}ConcurrencyLimiter", concurrencyLimiter);
-
-        // Create and register rate limiter
-        var rateLimiter = new ProviderRateLimiter(
-            TimeSpan.FromSeconds(serviceConfig.RateLimitSeconds), 
-            providerName);
-        services.AddSingleton(rateLimiter);
-        services.AddKeyedSingleton($"{providerName}RateLimiter", rateLimiter);
 
         // Register provider with factory method
         services.AddScoped(config.ProviderType, sp =>
@@ -118,7 +111,6 @@ public static class ProviderRegistry
     {
         var provider = (IMediaProvider)sp.GetRequiredService(config.ProviderType);
         var limiter = sp.GetRequiredKeyedService<ProviderConcurrencyLimiter>($"{providerName}ConcurrencyLimiter");
-        var rateLimiter = sp.GetRequiredKeyedService<ProviderRateLimiter>($"{providerName}RateLimiter");
         var cache = sp.GetRequiredService<MetadataCache>();
 
         if (string.IsNullOrWhiteSpace(title))
@@ -144,13 +136,7 @@ public static class ProviderRegistry
 
             try
             {
-                var waitTime = rateLimiter.GetWaitTime(searchSlot.SlotId);
-                if (waitTime > TimeSpan.Zero)
-                    logger.LogDebug($"{providerName}Search", $"Rate limit wait: {waitTime.TotalSeconds:F1}s", title);
-
-                await rateLimiter.WaitIfNeededAsync(searchSlot.SlotId, ct).ConfigureAwait(false);
                 hits = await provider.SearchAsync(title, maxResults, ct).ConfigureAwait(false);
-                rateLimiter.RecordRequestComplete(searchSlot.SlotId);
             }
             finally
             {
@@ -196,7 +182,7 @@ public static class ProviderRegistry
                     try
                     {
                         return await FetchDetailWithCacheAsync(
-                            provider, limiter, rateLimiter, cache, cacheKey,
+                            provider, limiter, cache, cacheKey,
                             hitId, hit.DetailUrl, slotTimeoutMs: 30_000,
                             logger, $"{providerName}DetailExpand", ct).ConfigureAwait(false);
                     }
@@ -239,7 +225,6 @@ public static class ProviderRegistry
     {
         var provider = (IMediaProvider)sp.GetRequiredService(config.ProviderType);
         var limiter = sp.GetRequiredKeyedService<ProviderConcurrencyLimiter>($"{providerName}ConcurrencyLimiter");
-        var rateLimiter = sp.GetRequiredKeyedService<ProviderRateLimiter>($"{providerName}RateLimiter");
         var cache = sp.GetRequiredService<MetadataCache>();
 
         logger.LogAlways($"{providerName}Detail", $"Querying ID: {id}");
@@ -254,7 +239,7 @@ public static class ProviderRegistry
         {
             var detailUrl = provider.BuildDetailUrlById(parsedId);
             var result = await FetchDetailWithCacheAsync(
-                provider, limiter, rateLimiter, cache, cacheKey,
+                provider, limiter, cache, cacheKey,
                 parsedId, detailUrl, slotTimeoutMs: 15_000,
                 logger, $"{providerName}Detail", ct).ConfigureAwait(false);
 
@@ -290,9 +275,9 @@ public static class ProviderRegistry
 
     /// <summary>
     /// Core detail fetch logic shared by the detail endpoint and search-internal expansion.
-    /// Implements double-checked cache, slot acquisition, rate limiting, and cache write.
-    /// Rate limiting is always applied: any caller that acquires a slot is subject to the
-    /// per-slot interval, ensuring consistent throttling regardless of call origin.
+    /// Implements double-checked cache, slot acquisition (with cooldown), and cache write.
+    /// Rate limiting is enforced by the slot cooldown: each slot is unavailable for
+    /// <c>RateLimitSeconds</c> after being released, throttling request frequency naturally.
     /// </summary>
     /// <param name="slotTimeoutMs">
     /// How long to wait for a free slot before giving up.
@@ -303,7 +288,6 @@ public static class ProviderRegistry
     private static async Task<Metadata?> FetchDetailWithCacheAsync(
         IMediaProvider provider,
         ProviderConcurrencyLimiter limiter,
-        ProviderRateLimiter rateLimiter,
         MetadataCache cache,
         string cacheKey,
         string parsedId,
@@ -317,7 +301,7 @@ public static class ProviderRegistry
         var cached = cache.TryGetCached(cacheKey, parsedId);
         if (cached != null)
         {
-            logger.LogDebug(logOperation, "Cache hit (pre-slot)", parsedId);
+            logger.LogAlways(logOperation, "Cache hit", parsedId);
             return cached;
         }
 
@@ -331,25 +315,20 @@ public static class ProviderRegistry
             cached = cache.TryGetCached(cacheKey, parsedId);
             if (cached != null)
             {
-                logger.LogDebug(logOperation, "Cache hit (post-slot)", parsedId);
+                logger.LogAlways(logOperation, "Cache hit (post-slot)", parsedId);
+                slot.SkipCooldown = true; // no network request → release immediately
                 return cached;
             }
 
-            var waitTime = rateLimiter.GetWaitTime(slot.SlotId);
-            if (waitTime > TimeSpan.Zero)
-                logger.LogDebug(logOperation, $"Slot {slot.SlotId} rate limit wait: {waitTime.TotalSeconds:F1}s", parsedId);
-            await rateLimiter.WaitIfNeededAsync(slot.SlotId, ct).ConfigureAwait(false);
-
-            logger.LogDebug(logOperation, $"Slot {slot.SlotId} fetching", parsedId);
+            logger.LogAlways(logOperation, $"Slot {slot.SlotId} → fetch", parsedId);
             var result = await provider.FetchDetailAsync(detailUrl, ct).ConfigureAwait(false);
-
-            rateLimiter.RecordRequestComplete(slot.SlotId);
             cache.SetCached(cacheKey, parsedId, result);
             return result;
         }
         finally
         {
-            logger.LogDebug(logOperation, $"Slot {slot.SlotId} released", parsedId);
+            var mode = slot.SkipCooldown ? "immediate" : $"cooldown {limiter.Cooldown.TotalSeconds:F0}s";
+            logger.LogAlways(logOperation, $"Slot {slot.SlotId} released ({mode})", parsedId);
             slot.Dispose();
         }
     }

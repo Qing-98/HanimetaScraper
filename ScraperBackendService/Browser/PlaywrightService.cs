@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
+using ScraperBackendService.Configuration;
 using ScraperBackendService.Core.Logging;
 
 namespace ScraperBackendService.Browser;
@@ -11,49 +13,55 @@ namespace ScraperBackendService.Browser;
 public class PlaywrightService : IAsyncDisposable, IDisposable
 {
     private readonly ILogger<PlaywrightService> _logger;
-    private readonly TaskCompletionSource<IBrowser> _browserTcs = new();
+    private readonly ServiceConfiguration _config;
+    private readonly Lazy<Task<IBrowser>> _browserLazy;
     private IPlaywright? _playwright;
-    private IBrowser? _browser;
     private bool _disposed = false;
 
-    public PlaywrightService(ILogger<PlaywrightService> logger)
+    public PlaywrightService(ILogger<PlaywrightService> logger, IOptions<ServiceConfiguration> config)
     {
         _logger = logger;
-        _ = Task.Run(InitializeBrowserAsync);
+        _config = config.Value;
+        _browserLazy = new Lazy<Task<IBrowser>>(InitializeBrowserAsync, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public async Task<IBrowser> GetBrowserAsync()
     {
-        return await _browserTcs.Task.ConfigureAwait(false);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return await _browserLazy.Value.ConfigureAwait(false);
     }
 
-    private async Task InitializeBrowserAsync()
+    private async Task<IBrowser> InitializeBrowserAsync()
     {
-        try
-        {
-            _logger.LogDebug("Initializing Playwright browser...");
-            _playwright = await Playwright.CreateAsync().ConfigureAwait(false);
+        _logger.LogDebug("Initializing Playwright browser...");
+        _playwright = await Playwright.CreateAsync().ConfigureAwait(false);
 
-            // Keep launch args minimal ¡ª extra flags make the browser easier to fingerprint.
-            // Anti-automation is handled by the stealth script injected at context level.
-            // Only remove --enable-automation from Playwright's defaults (it sets
-            // navigator.webdriver=true and shows the automation infobar).
-            var launchOptions = new BrowserTypeLaunchOptions
+        var launchOptions = new BrowserTypeLaunchOptions
+        {
+            Headless = true,
+            IgnoreDefaultArgs = new[] { "--enable-automation" }
+        };
+
+        IBrowser browser;
+        if (_config.PreferSystemChromeForHeadless)
+        {
+            try
             {
-                Headless = true,
-                IgnoreDefaultArgs = new[] { "--enable-automation" }
-            };
-
-            _browser = await _playwright.Chromium.LaunchAsync(launchOptions).ConfigureAwait(false);
-
-            _logger.LogAlways("PlaywrightService", "Playwright browser initialized successfully");
-            _browserTcs.SetResult(_browser);
+                launchOptions.Channel = "chrome";
+                browser = await _playwright.Chromium.LaunchAsync(launchOptions).ConfigureAwait(false);
+                _logger.LogSuccess("PlaywrightService", "Headless browser launched using system Chrome channel");
+                return browser;
+            }
+            catch (PlaywrightException ex)
+            {
+                _logger.LogWarning(ex, "System Chrome channel launch failed, falling back to bundled Chromium");
+                launchOptions.Channel = null;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogFailure("PlaywrightService", "Failed to initialize Playwright browser", null, ex);
-            _browserTcs.SetException(ex);
-        }
+
+        browser = await _playwright.Chromium.LaunchAsync(launchOptions).ConfigureAwait(false);
+        _logger.LogAlways("PlaywrightService", "Playwright browser initialized successfully");
+        return browser;
     }
 
     public async ValueTask DisposeAsync()
@@ -63,10 +71,21 @@ public class PlaywrightService : IAsyncDisposable, IDisposable
         {
             _logger.LogDebug("Disposing Playwright resources...");
 
-            if (_browser != null && _browser.IsConnected)
+            if (_browserLazy.IsValueCreated)
             {
-                await _browser.CloseAsync().ConfigureAwait(false);
-                _logger.LogDebug("Browser closed successfully");
+                try
+                {
+                    var browser = await _browserLazy.Value.ConfigureAwait(false);
+                    if (browser.IsConnected)
+                    {
+                        await browser.CloseAsync().ConfigureAwait(false);
+                        _logger.LogDebug("Browser closed successfully");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error while closing browser instance");
+                }
             }
 
             if (_playwright != null)

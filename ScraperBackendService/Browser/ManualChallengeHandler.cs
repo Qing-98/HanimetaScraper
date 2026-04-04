@@ -340,17 +340,17 @@ public class ManualChallengeHandler
                 await Task.Delay(checkInterval, ct);
 
                 var currentUrl = page.Url;
-                // 使用 EvaluateAsync 获取内容更稳定，且不容易像 ContentAsync 那样被某些反爬检测
+                // Using EvaluateAsync to read page content is more stable and less likely to trigger anti-bot detection than ContentAsync in some cases.
                 var html = await page.EvaluateAsync<string>("() => document.documentElement.outerHTML");
 
-                // 检查是否还是挑战页
+                // Check whether this is still a challenge page
                 if (!_challengeDetector.IsCloudflareChallengePage(html, currentUrl))
                 {
-                    // 验证页面有有效内容
+                    // Validate that the page contains real content
                     var hasContent = await _challengeDetector.HasValidContentAsync(page);
                     if (hasContent)
                     {
-                        // 额外稳定性等待: 确认挑战不会再次出现
+                        // Extra stabilization wait to ensure the challenge does not immediately reappear
                         await Task.Delay(3000, ct);
                         
                         var verifyHtml = await page.ContentAsync();
@@ -360,25 +360,28 @@ public class ManualChallengeHandler
                             _logger.LogDebug("ManualChallenge", "Challenge reappeared after briefly disappearing, continuing to wait...");
                             continue;
                         }
+
+                        await LogManualDiagnosticsAsync(page, verifyHtml, originalUrl, "manual-solved");
                         
                         _logger.LogSuccess("ManualChallenge", $"Challenge Solved (Took {stopwatch.Elapsed.TotalSeconds:F1}s)");
                         
-                        // 移除提示框
+                        // Remove the instruction overlay
                         await RemoveInstructionAsync(page);
                         
-                        // 额外等待确保所有 cookies 都设置完成
+                        // Extra wait to ensure all cookies are fully set
                         await Task.Delay(2000, ct);
                         
                         return true;
                     }
                 }
 
-                // 每10秒输出一次进度
+                // Log progress every ~10 seconds
                 if (stopwatch.Elapsed.TotalSeconds % 10 < 2)
                 {
                     var remaining = (timeout - stopwatch.Elapsed).TotalSeconds;
                     _logger.LogDebug("ManualChallenge", 
                         $"Waiting... (remaining: {remaining:F0}s)");
+                    await LogManualDiagnosticsAsync(page, html, originalUrl, "manual-waiting");
                 }
             }
             catch (OperationCanceledException)
@@ -401,6 +404,35 @@ public class ManualChallengeHandler
         }
 
         return false;
+    }
+
+    private async Task LogManualDiagnosticsAsync(IPage page, string html, string requestUrl, string stage)
+    {
+        try
+        {
+            var analysis = _challengeDetector.AnalyzeChallengePage(html);
+            var reasons = analysis.Reasons.Count == 0 ? "none" : string.Join(",", analysis.Reasons);
+
+            var title = string.Empty;
+            try { title = await page.TitleAsync(); } catch { }
+
+            var userAgent = string.Empty;
+            try { userAgent = await page.EvaluateAsync<string>("() => navigator.userAgent"); } catch { }
+
+            bool hasCfClearance = false;
+            try
+            {
+                var cookies = await page.Context.CookiesAsync([requestUrl]);
+                hasCfClearance = cookies.Any(c => string.Equals(c.Name, "cf_clearance", StringComparison.OrdinalIgnoreCase));
+            }
+            catch { }
+
+            _logger.LogDebug("ManualChallenge", $"[Diagnostics:{stage}] request={requestUrl} pageUrl={page.Url} title={title} ua={userAgent} cf_clearance={hasCfClearance} detectorReasons={reasons}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("ManualChallenge", "Failed to collect manual challenge diagnostics", requestUrl, ex);
+        }
     }
 
     /// <summary>

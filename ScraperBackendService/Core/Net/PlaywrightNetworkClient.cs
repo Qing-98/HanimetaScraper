@@ -40,6 +40,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
     private readonly ManualChallengeHandler? _manualChallengeHandler;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _manualChallengeAttempts = new();
     private static readonly TimeSpan ManualChallengeCooldown = TimeSpan.FromSeconds(120);
+    private const string ManualResolutionForcingRotationMessage = "Challenge detected (Manual resolution successful, forcing rotation)";
 
     /// <summary>
     /// Context Management Mode constructor (recommended for production).
@@ -338,7 +339,8 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
             _ctxMgr.FlagChallengeOnCurrent(forDetail: forDetail);
             
             // Second attempt: slow retry with extended timeout, skip manual challenge
-            try            {
+            try
+            {
                 var page = await OpenOnceAsync(url, forDetail, primary: false, skipManualChallenge: true, ct);
                 _log?.LogSuccess("PageNavigation", url);
                 _log?.LogDebug("PageNavigation", "Slow retry succeeded (context flagged for rotation)", url);
@@ -426,6 +428,13 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
     /// <returns>True if challenge is detected, false otherwise</returns>
     private bool LooksLikeChallenge(string? curUrl, string? html)
     {
+        // Early exit: Skip API/JSON responses entirely
+        if (!string.IsNullOrEmpty(html) && 
+            (html.TrimStart().StartsWith("{") || html.TrimStart().StartsWith("[")))
+        {
+            return false;
+        }
+
         // 1. Check URL patterns (fastest)
         if (!string.IsNullOrEmpty(curUrl))
         {
@@ -464,10 +473,20 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         var currentUrl = page.Url;
         var html = await page.ContentAsync();
         
+        // Skip challenge detection for API/JSON responses
+        if (!string.IsNullOrEmpty(html) && 
+            (html.TrimStart().StartsWith("{") || html.TrimStart().StartsWith("[")))
+        {
+            _log?.LogDebug("AntiBot", "API/JSON response detected, skipping challenge check", currentUrl);
+            return false;
+        }
+        
         if (!LooksLikeChallenge(currentUrl, html))
         {
             return false;
         }
+
+        await LogChallengeDiagnosticsAsync(page, html, url, "headless-detected");
 
         _log?.LogDebug("AntiBot", "Challenge detected, waiting for auto-resolution", currentUrl);
 
@@ -480,6 +499,10 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         var noChangeCount = 0;
         var maxNoChangeChecks = 5;
         
+        // Diagnostic: Log HTML snippet for debugging
+        var htmlPreview = html?.Length > 200 ? html.Substring(0, 200) + "..." : html;
+        _log?.LogDebug("AntiBot", $"Challenge detection triggered - HTML length: {html?.Length}, URL: {currentUrl}, Preview: {htmlPreview}", url);
+
         while (stopwatch.ElapsedMilliseconds < maxWaitMs && !ct.IsCancellationRequested)
         {
             try
@@ -521,6 +544,7 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
                     if (noChangeCount >= maxNoChangeChecks)
                     {
                         _log?.LogWarning("AntiBot", "Challenge appears stuck", $"no changes for {noChangeCount * checkIntervalMs}ms, gave up after {stopwatch.ElapsedMilliseconds}ms");
+                        await LogChallengeDiagnosticsAsync(page, currentHtml, url, "headless-stuck");
                         break;
                     }
                 }
@@ -585,10 +609,10 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
                         _log?.LogSuccess("AntiBot", $"Manual resolution success, rotating context ({url})");
                         
                         // 抛出这个特定消息的异常，会被 OpenWithRetryAsync 捕获并强制轮换
-                        throw new InvalidOperationException("Challenge detected (Manual resolution successful, forcing rotation)");
+                        throw new InvalidOperationException(ManualResolutionForcingRotationMessage);
                     }
                 }
-                catch (Exception ex) when (ex.Message.Contains("forcing rotation"))
+                catch (Exception ex) when (ex.Message.Contains("forcing rotation", StringComparison.Ordinal))
                 {
                     throw; // Rethrow to trigger rotation logic in OpenWithRetryAsync
                 }
@@ -609,6 +633,40 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         }
 
         return true;
+    }
+
+    private async Task LogChallengeDiagnosticsAsync(IPage page, string? html, string requestUrl, string stage)
+    {
+        if (_log is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var analysis = _challengeDetector.AnalyzeChallengePage(html ?? string.Empty);
+            var reasons = analysis.Reasons.Count == 0 ? "none" : string.Join(",", analysis.Reasons);
+
+            var title = string.Empty;
+            try { title = await page.TitleAsync(); } catch { }
+
+            var userAgent = string.Empty;
+            try { userAgent = await page.EvaluateAsync<string>("() => navigator.userAgent"); } catch { }
+
+            bool hasCfClearance = false;
+            try
+            {
+                var cookies = await page.Context.CookiesAsync([requestUrl]);
+                hasCfClearance = cookies.Any(c => string.Equals(c.Name, "cf_clearance", StringComparison.OrdinalIgnoreCase));
+            }
+            catch { }
+
+            _log.LogDebug("AntiBot", $"[Diagnostics:{stage}] request={requestUrl} pageUrl={page.Url} title={title} ua={userAgent} cf_clearance={hasCfClearance} detectorReasons={reasons}");
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug("AntiBot", "Failed to collect challenge diagnostics", requestUrl, ex);
+        }
     }
 
     // ========== Simple Mode Methods ==========
@@ -794,5 +852,10 @@ public sealed class PlaywrightNetworkClient : INetworkClient, IAsyncDisposable
         }
     }
 }
+
+
+
+
+
 
 
