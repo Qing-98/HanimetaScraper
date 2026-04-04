@@ -1,0 +1,81 @@
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - 'plugin-v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release Plugin
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get version from tag
+        id: version
+        run: |
+          # 提取 plugin-v 后面的版本号
+          TAG=${GITHUB_REF#refs/tags/plugin-v}
+          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build Plugin
+        run: |
+          dotnet build Jellyfin.Plugin.Hanimeta/Jellyfin.Plugin.Hanimeta.csproj \
+            -c Release \
+            -p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Package Plugin
+        run: |
+          cd Jellyfin.Plugin.Hanimeta/bin/Release/net9.0
+          zip -r ../../../../jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip Jellyfin.Plugin.Hanimeta.dll
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Plugin Release v${{ steps.version.outputs.VERSION }}
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🎉 Hanimeta 插件端更新 v${{ steps.version.outputs.VERSION }}
+            
+            ⚠️ **注意**: 此版本仅包含 Jellyfin 前端插件更新。
+            
+            ### 🔌 下载安装
+            1. 下载 `jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip`
+            2. 解压并将提取出的 `.dll` 放置到 Jellyfin 的 plugins 目录:
+               - Windows: `C:\ProgramData\Jellyfin\Server\plugins\Hanimeta\`
+               - Linux: `/var/lib/jellyfin/plugins/Hanimeta/`
+            3. 重启 Jellyfin
+            4. 在控制台 -> 插件 中配置 Hanimeta (配置后端 API 地址)
+            
+            ---
+            
+            ### 📝 更新日志
+            
+            **(请在此处填写此版本的更新说明)**
+            
+            ---
+            
+            ### 📝 本地更新 Manifest 指南 (维护者专用)
+            
+            发布后请在本地运行:
+            ```bash
+            pwsh scripts/update-manifest-from-release.ps1 -ReleaseTag ${{ steps.version.outputs.TAG }}
+            ```
+            
+          files: jellyfin-plugin-hanimeta-${{ steps.version.outputs.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,133 @@
+name: Release Backend
+
+on:
+  push:
+    tags:
+      - 'backend-v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get version from tag
+        id: version
+        run: |
+          # 提取 backend-v 后面的版本号
+          TAG=${GITHUB_REF#refs/tags/backend-v}
+          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build Backend - Windows x64
+        run: |
+          dotnet publish ScraperBackendService/ScraperBackendService.csproj \
+            -c Release \
+            -r win-x64 \
+            --self-contained true \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            -o ./publish/backend-windows-x64
+
+      - name: Pack Scripts - Windows x64
+        run: |
+          cd publish/backend-windows-x64
+          cat > install-playwright.bat << 'EOFBAT'
+          @echo off
+          echo Installing Playwright Chromium browser...
+          pwsh playwright.ps1 install chromium
+          pause
+          EOFBAT
+          
+          cat > README.txt << 'EOFREADME'
+          Hanimeta Backend Service - Windows
+          ===================================
+          
+          Installation:
+          1. Run install-playwright.bat to install browser dependencies
+          2. Start ScraperBackendService.exe
+          3. Service will run on http://localhost:5000
+          
+          Requirements:
+          - PowerShell 7+ (for Playwright installation)
+          EOFREADME
+          
+          zip -r ../../hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip .
+
+      - name: Build Backend - Linux x64
+        run: |
+          dotnet publish ScraperBackendService/ScraperBackendService.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:Version=${{ steps.version.outputs.VERSION }} \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            -o ./publish/backend-linux-x64
+
+      - name: Pack Scripts - Linux x64
+        run: |
+          cd publish/backend-linux-x64
+          cat > install-playwright.sh << 'EOFSH'
+          #!/bin/bash
+          echo "Installing Playwright Chromium browser..."
+          pwsh playwright.ps1 install chromium
+          EOFSH
+          chmod +x install-playwright.sh
+          
+          cat > README.txt << 'EOFREADME'
+          Hanimeta Backend Service - Linux
+          =================================
+          
+          Quick Start:
+          1. Extract: tar -xzf hanimeta-backend-linux-x64-*.tar.gz -C /opt/hanimeta-backend
+          2. Install Playwright: cd /opt/hanimeta-backend && ./install-playwright.sh
+          3. Run: ./ScraperBackendService
+          
+          Requirements:
+          - PowerShell 7+
+          EOFREADME
+          
+          tar -czf ../../hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz .
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Backend Release v${{ steps.version.outputs.VERSION }}
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🚀 Hanimeta 后端服务更新 v${{ steps.version.outputs.VERSION }}
+            
+            ⚠️ **注意**: 此版本仅包含刮削后端服务更新 (ScraperBackendService)。
+            
+            ### 🪟 Windows 安装
+            下载 `hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip`，解压后双击 `install-playwright.bat` 安装浏览器环境，最后启动主程序 `ScraperBackendService.exe`。
+            
+            ### 🐧 Linux 安装
+            下载 `hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz`，解压后运行 `./install-playwright.sh` 安装浏览器环境，最后启动主程序 `./ScraperBackendService`。
+            
+            ---
+            
+            ### 📝 更新日志
+            
+            **(请在此处填写此版本的更新说明)**
+            
+          files: |
+            hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip
+            hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
