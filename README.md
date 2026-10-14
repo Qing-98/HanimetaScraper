@@ -55,6 +55,8 @@ HanimetaScraper/
 
 ### Jellyfin 插件配置（前端）
 
+当前插件要求 Jellyfin **10.11.x / .NET 9**；安装与编号识别说明见 [插件文档](Jellyfin.Plugin.Hanimeta/README.md)。
+
 在 Jellyfin 后台打开插件配置页，至少设置：
 
 - `Backend URL`（默认 `http://127.0.0.1:8585`）
@@ -135,6 +137,8 @@ Environment overrides:
 - `SCRAPER_AUTH_TOKEN`
 
 ### Jellyfin Plugin Configuration (Frontend)
+
+The current plugin requires Jellyfin **10.11.x / .NET 9**. See the [plugin documentation](Jellyfin.Plugin.Hanimeta/README.md) for installation and ID lookup.
 
 In Jellyfin plugin settings, configure at least:
 

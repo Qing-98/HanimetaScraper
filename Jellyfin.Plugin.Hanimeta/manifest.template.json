@@ -6,9 +6,9 @@
   "owner": "Qing-98",
   "category": "Metadata",
   "imageUrl": "",
-  "targetAbi": "10.10.1.0",
+  "targetAbi": "10.11.0.0",
   "version": "1.2.0.0",
-  "changelog": "Updated unified plugin with compatibility for Jellyfin 10.10.x",
+  "changelog": "Jellyfin 10.11.x compatibility and provider ID lookup fixes",
   "framework": "net9.0",
   "assemblies": [
     "Jellyfin.Plugin.Hanimeta.dll"

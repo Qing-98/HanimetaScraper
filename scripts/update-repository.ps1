@@ -13,7 +13,7 @@ param(
     [string]$ZipPath,
     
     [Parameter(Mandatory=$false, HelpMessage="Target Jellyfin ABI version")]
-    [string]$TargetAbi = "10.10.1.0",
+    [string]$TargetAbi = "10.11.0.0",
     
     [Parameter(Mandatory=$false, HelpMessage="GitHub repository owner")]
     [string]$Owner = "Qing-98",

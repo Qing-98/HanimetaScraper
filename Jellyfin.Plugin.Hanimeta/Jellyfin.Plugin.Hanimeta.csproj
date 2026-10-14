@@ -32,7 +32,7 @@
 
 <!-- Package References -->
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="10.*" />
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.0" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="ExternalUrls\" />

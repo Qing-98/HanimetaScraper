@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Hanimeta.Client;
 using Jellyfin.Plugin.Hanimeta.Configuration;
 using Jellyfin.Plugin.Hanimeta.Extensions;
@@ -340,32 +339,7 @@ internal static class HanimeProviderHelpers
     /// <returns>True if parsing was successful</returns>
     public static bool TryParseProviderId(string? input, out string id)
     {
-        id = string.Empty;
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return false;
-        }
-
-        var cleaned = input.Trim();
-        
-        // Numeric ID (at least 4 digits)
-        var numericIdRegex = new Regex(@"^\d{4,}$", RegexOptions.Compiled);
-        if (numericIdRegex.IsMatch(cleaned))
-        {
-            id = cleaned;
-            return true;
-        }
-
-        // ID in URL
-        var urlIdRegex = new Regex(@"[?&]v=(\d+)", RegexOptions.Compiled);
-        var urlMatch = urlIdRegex.Match(cleaned);
-        if (urlMatch.Success)
-        {
-            id = urlMatch.Groups[1].Value;
-            return true;
-        }
-
-        return false;
+        return IdHelper.TryExtractHanimeId(input, out id);
     }
 }
 #endregion
