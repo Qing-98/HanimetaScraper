@@ -44,6 +44,7 @@ jobs:
       - name: Pack Scripts - Windows x64
         run: |
           cd publish/backend-windows-x64
+          test -s Browser/StealthInit.js
           cat > install-playwright.bat << 'EOFBAT'
           @echo off
           echo Installing Playwright Chromium browser...
@@ -58,7 +59,7 @@ jobs:
           Installation:
           1. Run install-playwright.bat to install browser dependencies
           2. Start ScraperBackendService.exe
-          3. Service will run on http://localhost:5000
+          3. Service will run on http://localhost:8585
           
           Requirements:
           - PowerShell 7+ (for Playwright installation)
@@ -80,10 +81,11 @@ jobs:
       - name: Pack Scripts - Linux x64
         run: |
           cd publish/backend-linux-x64
+          test -s Browser/StealthInit.js
           cat > install-playwright.sh << 'EOFSH'
           #!/bin/bash
           echo "Installing Playwright Chromium browser..."
-          pwsh playwright.ps1 install chromium
+          pwsh playwright.ps1 install --with-deps chromium
           EOFSH
           chmod +x install-playwright.sh
           
@@ -110,24 +112,32 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body: |
-            ## 🚀 Hanimeta 后端服务更新 v${{ steps.version.outputs.VERSION }}
-            
-            ⚠️ **注意**: 此版本仅包含刮削后端服务更新 (ScraperBackendService)。
-            
-            ### 🪟 Windows 安装
+            Hanimeta 刮削后端服务 v${{ steps.version.outputs.VERSION }}，默认端口为 8585。
+
+            ### Docker 部署（Linux x86-64 / ARM64）
+
+            下载本页的 `compose.yaml`，在其目录运行 `docker compose up -d`。
+            镜像公开，无需登录，Docker 自动选择架构。镜像地址：
+            `ghcr.io/qing-98/hanimetascraper-backend:${{ steps.version.outputs.VERSION }}`
+
+            如需固定本版本，下载 `.env.example` 并改名为 `.env`，将 `HANIMETA_IMAGE` 设为上述地址。
+            后续更新运行 `docker compose pull` 和 `docker compose up -d`。
+
+            ### Windows 安装
+
             下载 `hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip`，解压后双击 `install-playwright.bat` 安装浏览器环境，最后启动主程序 `ScraperBackendService.exe`。
-            
-            ### 🐧 Linux 安装
+
+            ### Linux 安装
+
             下载 `hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz`，解压后运行 `./install-playwright.sh` 安装浏览器环境，最后启动主程序 `./ScraperBackendService`。
-            
-            ---
-            
-            ### 📝 更新日志
-            
-            **(请在此处填写此版本的更新说明)**
-            
+
+            Windows/Linux 直接运行安装包时，浏览器安装脚本需要 PowerShell 7+；Linux 脚本同时安装 Chromium 系统依赖。Docker 镜像已包含这些依赖。
+
+            在 Jellyfin 插件中设置后端地址 `http://部署机器IP:8585`；如设置了 API Token，也要同步填写插件配置。
           files: |
             hanimeta-backend-windows-x64-${{ steps.version.outputs.VERSION }}.zip
             hanimeta-backend-linux-x64-${{ steps.version.outputs.VERSION }}.tar.gz
+            compose.yaml
+            .env.example
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

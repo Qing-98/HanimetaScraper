@@ -17,7 +17,6 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     ServiceConfig__EnableManualChallengeResolution=false
 
 COPY --from=build /app/publish/ ./
-COPY ScraperBackendService/Browser/StealthInit.js ./Browser/StealthInit.js
 
 # Use the CLI and Node included in the published Playwright package.
 RUN set -eux; \
