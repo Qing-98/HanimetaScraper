@@ -120,7 +120,7 @@ jobs:
             镜像公开，无需登录，Docker 自动选择架构。镜像地址：
             `ghcr.io/qing-98/hanimetascraper-backend:${{ steps.version.outputs.VERSION }}`
 
-            如需固定本版本，下载 `.env.example` 并改名为 `.env`，将 `HANIMETA_IMAGE` 设为上述地址。
+            如需固定本版本，下载 `default.env.example` 并改名为 `.env`，将 `HANIMETA_IMAGE` 设为上述地址。
             后续更新运行 `docker compose pull` 和 `docker compose up -d`。
 
             ### Windows 安装
