@@ -24,7 +24,7 @@ show_usage() {
     echo "  -v VERSION      Plugin version (e.g., 1.3.0)"
     echo "  -c CHANGELOG    Changelog description"
     echo "  -z ZIP_PATH     Path to plugin ZIP file"
-    echo "  -a TARGET_ABI   Target Jellyfin ABI version (default: 10.10.1.0)"
+    echo "  -a TARGET_ABI   Target Jellyfin ABI version (default: 10.11.0.0)"
     echo "  -o OWNER        GitHub repository owner (default: Qing-98)"
     echo "  -r REPO         GitHub repository name (default: HanimetaScraper)"
     echo "  -h              Show this help message"
@@ -32,7 +32,7 @@ show_usage() {
 }
 
 # Default values
-TARGET_ABI="10.10.1.0"
+TARGET_ABI="10.11.0.0"
 OWNER="Qing-98"
 REPO="HanimetaScraper"
 

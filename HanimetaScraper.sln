@@ -14,6 +14,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "解决方案项", "解决�
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.Hanimeta", "Jellyfin.Plugin.Hanimeta\Jellyfin.Plugin.Hanimeta.csproj", "{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{0C88DD14-F956-CE84-757C-A364CCF449FC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Issue5RegressionTests", "Test\Issue5RegressionTests\Issue5RegressionTests.csproj", "{7C63695F-78AC-46C0-9112-4EB067052BAE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,9 +35,16 @@ Global
 		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CCAD0915-4510-4C8F-1D1F-DDBEB87EC5D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C63695F-78AC-46C0-9112-4EB067052BAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C63695F-78AC-46C0-9112-4EB067052BAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C63695F-78AC-46C0-9112-4EB067052BAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C63695F-78AC-46C0-9112-4EB067052BAE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7C63695F-78AC-46C0-9112-4EB067052BAE} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0F22D923-3B40-43D1-A73C-3D535876552C}

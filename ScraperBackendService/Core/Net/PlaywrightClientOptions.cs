@@ -10,6 +10,7 @@ public sealed class PlaywrightClientOptions
     /// <summary>Mutable so manual challenge resolution can update the fingerprint at runtime.</summary>
     public string UserAgent { get; set; } = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
     public string Locale { get; init; } = "zh-CN";
+    public bool JavaScriptEnabled { get; init; } = true;
     public string TimezoneId { get; init; } = "Australia/Melbourne";
     public string AcceptLanguage { get; init; } = "zh-CN,zh;q=0.9";
     public int ViewportWidth { get; init; } = 1280;

@@ -12,6 +12,7 @@ namespace Jellyfin.Plugin.Hanimeta.Helpers
         private static readonly Regex DlsiteExact = new(@"^(RJ|VJ)\d+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex DlsiteLoose = new(@"(RJ|VJ)\d{3,}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex HanimeNumber = new(@"^\d{4,}$", RegexOptions.Compiled);
+        private static readonly Regex HanimeBracketed = new(@"\[(?<id>\d{4,})\]|【(?<id>\d{4,})】", RegexOptions.Compiled);
         private static readonly Regex HanimeUrl = new(@"[?&]v=(\d+)", RegexOptions.Compiled);
 
         /// <summary>
@@ -73,7 +74,7 @@ namespace Jellyfin.Plugin.Hanimeta.Helpers
         }
 
         /// <summary>
-        /// Tries to extract a Hanime numeric ID from input (either plain number of 4+ digits or a URL with v= query parameter).
+        /// Tries to extract a Hanime ID from a number, a bracketed filename, or a URL with a v= query parameter.
         /// </summary>
         /// <param name="input">Input string.</param>
         /// <param name="id">Extracted ID when successful.</param>
@@ -86,7 +87,7 @@ namespace Jellyfin.Plugin.Hanimeta.Helpers
                 return false;
             }
 
-            var s = input.Trim();
+            var s = Regex.Replace(input.Trim(), @"\.(mkv|mp4|avi|wmv|flv|mov|ts|mpg|mpeg|m4v|webm)$", string.Empty, RegexOptions.IgnoreCase);
 
             if (HanimeNumber.IsMatch(s))
             {
@@ -98,6 +99,13 @@ namespace Jellyfin.Plugin.Hanimeta.Helpers
             if (m.Success)
             {
                 id = m.Groups[1].Value;
+                return true;
+            }
+
+            m = HanimeBracketed.Match(s);
+            if (m.Success)
+            {
+                id = m.Groups["id"].Value;
                 return true;
             }
 

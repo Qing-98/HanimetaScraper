@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
             var logger = sp.GetRequiredService<ILogger<PlaywrightContextManager>>();
             var options = new PlaywrightClientOptions
             {
+                JavaScriptEnabled = config.BrowserJavaScriptEnabled,
                 ChallengeAutoWaitMs = config.ChallengeAutoWaitSeconds * 1000,
                 ChallengeAutoWaitSlowMs = config.ChallengeAutoWaitSlowSeconds * 1000,
                 EnableManualChallengeResolution = config.EnableManualChallengeResolution,

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Jellyfin.Plugin.Hanimeta.Client;
 using Jellyfin.Plugin.Hanimeta.Configuration;
 using Jellyfin.Plugin.Hanimeta.Extensions;
@@ -329,32 +328,7 @@ internal static class DLsiteProviderHelpers
     /// <returns>True if parsing was successful</returns>
     public static bool TryParseProviderId(string? input, out string id)
     {
-        id = string.Empty;
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return false;
-        }
-
-        var cleaned = input.Trim();
-        
-        // DLsite ID format (RJ123456 or VJ123456)
-        var dlsiteIdRegex = new Regex(@"^(RJ|VJ)\d+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        if (dlsiteIdRegex.IsMatch(cleaned))
-        {
-            id = cleaned.ToUpperInvariant();
-            return true;
-        }
-
-        // ID in URL
-        var urlIdRegex = new Regex(@"product_id/((?:RJ|VJ)\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        var urlMatch = urlIdRegex.Match(cleaned);
-        if (urlMatch.Success)
-        {
-            id = urlMatch.Groups[1].Value.ToUpperInvariant();
-            return true;
-        }
-
-        return false;
+        return IdHelper.TryExtractDlsiteId(input, out id);
     }
 }
 #endregion

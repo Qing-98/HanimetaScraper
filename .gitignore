@@ -569,9 +569,6 @@ dist/
 *.zip
 *.tar.gz
 
-# Docker
-.dockerignore
-
 # Temporary files
 temp/
 tmp/

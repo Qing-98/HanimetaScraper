@@ -100,24 +100,8 @@ public abstract class BaseMetadataProviderService<TMetadata, TPerson, TApiClient
             var cleanedName = FilenameCleaner.Clean(info.Name);
             var cleanedOriginal = FilenameCleaner.Clean(info.OriginalTitle);
 
-            // Try to get ID
-            string? id = null;
-            if (info.ProviderIds != null &&
-                info.ProviderIds.TryGetValue(ProviderIdKey, out id) &&
-                !string.IsNullOrWhiteSpace(id))
-            {
-                // ID found
-            }
-
-            // Parse ID from filename
-            if (string.IsNullOrWhiteSpace(id) && !string.IsNullOrWhiteSpace(cleanedName))
-            {
-                if (TryParseProviderId(cleanedName, out var parsedId))
-                {
-                    id = parsedId;
-                    logger.LogInformationIfEnabled($"[{Name}] Parsed ID from name '{cleanedName}': {id}");
-                }
-            }
+            // Read IDs before filename cleaning removes brackets and URL punctuation.
+            var id = GetProviderId(info);
 
             // Perform title search
             if (string.IsNullOrWhiteSpace(id))
@@ -195,14 +179,13 @@ public abstract class BaseMetadataProviderService<TMetadata, TPerson, TApiClient
         try
         {
             logger.LogInformationIfEnabled(
-                $"[{Name}] GetSearchResults: Name='{searchInfo.Name}', Year={searchInfo.Year}, ProviderIds={string.Join(", ", searchInfo.ProviderIds.Select(p => $"{p.Key}:{p.Value}"))}");
+                $"[{Name}] GetSearchResults: Name='{searchInfo.Name}', Year={searchInfo.Year}, ProviderIds={string.Join(", ", searchInfo.ProviderIds?.Select(p => $"{p.Key}:{p.Value}") ?? Array.Empty<string>())}");
 
-            // If ID exists, return details directly
-            if (searchInfo.ProviderIds != null &&
-                searchInfo.ProviderIds.TryGetValue(ProviderIdKey, out var existingId) &&
-                !string.IsNullOrWhiteSpace(existingId))
+            // Manual searches also accept IDs in the name or original title.
+            var existingId = GetProviderId(searchInfo);
+            if (!string.IsNullOrWhiteSpace(existingId))
             {
-                logger.LogInformationIfEnabled($"[{Name}] Found ID in ProviderIds: {existingId}");
+                logger.LogInformationIfEnabled($"[{Name}] Found provider ID: {existingId}");
                 var detailResult = await GetDetailByIdAsync(existingId, cancellationToken).ConfigureAwait(false);
                 if (detailResult != null)
                 {
@@ -238,6 +221,26 @@ public abstract class BaseMetadataProviderService<TMetadata, TPerson, TApiClient
     {
         using var apiClient = apiClientFactory();
         return await apiClient.GetImageResponseAsync(url, cancellationToken).ConfigureAwait(false);
+    }
+
+    private string? GetProviderId(MovieInfo info)
+    {
+        if (info.ProviderIds != null &&
+            info.ProviderIds.TryGetValue(ProviderIdKey, out var existingId) &&
+            !string.IsNullOrWhiteSpace(existingId))
+        {
+            return existingId;
+        }
+
+        foreach (var input in new[] { info.Name, info.OriginalTitle, FilenameCleaner.Clean(info.Name), FilenameCleaner.Clean(info.OriginalTitle) })
+        {
+            if (TryParseProviderId(input, out var parsedId))
+            {
+                return parsedId;
+            }
+        }
+
+        return null;
     }
 
     private async Task<RemoteSearchResult?> GetDetailByIdAsync(string id, CancellationToken cancellationToken)

@@ -179,6 +179,7 @@ public class PlaywrightContextManager : IAsyncDisposable, IDisposable
     {
         var ctx = await _browser.NewContextAsync(new()
         {
+            JavaScriptEnabled = _opt.JavaScriptEnabled,
             UserAgent = _opt.UserAgent,
             ViewportSize = new() { Width = _opt.ViewportWidth, Height = _opt.ViewportHeight },
             Locale = _opt.Locale,
