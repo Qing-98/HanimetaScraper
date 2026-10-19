@@ -61,7 +61,8 @@ jobs:
         run: |
           docker run -d --name smoke --init --shm-size=1g -p 127.0.0.1:18585:8585 "$IMAGE"
           curl --fail --silent --show-error --retry 60 --retry-delay 2 \
-            --retry-connrefused --retry-max-time 120 http://127.0.0.1:18585/health
+            --retry-all-errors --connect-timeout 2 --max-time 5 \
+            --retry-max-time 120 http://127.0.0.1:18585/health
           docker exec -i smoke "/app/.playwright/node/linux-$NODE_ARCH/node" <<'JS'
           const { chromium } = require('/app/.playwright/package');
           (async () => {
