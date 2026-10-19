@@ -1,0 +1,15 @@
+services:
+  backend:
+    image: ${HANIMETA_IMAGE:-ghcr.io/qing-98/hanimetascraper-backend:latest}
+    init: true
+    restart: unless-stopped
+    shm_size: 1gb
+    ports:
+      - "${HANIMETA_PORT:-8585}:8585"
+    environment:
+      SCRAPER_AUTH_TOKEN: ${SCRAPER_AUTH_TOKEN:-}
+    volumes:
+      - cookies:/app/Data/Cookies
+
+volumes:
+  cookies:

@@ -39,6 +39,7 @@ public class PlaywrightService : IAsyncDisposable, IDisposable
         var launchOptions = new BrowserTypeLaunchOptions
         {
             Headless = true,
+            Args = _config.BrowserLaunchArgs,
             IgnoreDefaultArgs = new[] { "--enable-automation" }
         };
 
