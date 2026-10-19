@@ -31,7 +31,7 @@ HanimetaScraper/
 docker compose up -d
 ```
 
-默认镜像：`ghcr.io/qing-98/hanimetascraper-backend:latest`。首次发布成功且镜像包设为 Public 后，其他用户无需登录即可拉取。检查 `http://部署机器IP:8585/health`；在 Jellyfin 插件中将 `Backend URL` 设为 `http://部署机器IP:8585`，该地址必须能从 Jellyfin 所在环境访问。
+默认公开镜像：`ghcr.io/qing-98/hanimetascraper-backend:latest`，无需登录即可拉取。检查 `http://部署机器IP:8585/health`；在 Jellyfin 插件中将 `Backend URL` 设为 `http://部署机器IP:8585`，该地址必须能从 Jellyfin 所在环境访问。
 
 如需修改端口或设置 API Token，将 [.env.example](.env.example) 复制为与 `compose.yaml` 同目录的 `.env` 并修改对应值；启用 Token 后，也要填写插件中的 `API Token`。Cookie 自动保存在 Docker 卷中。
 
@@ -49,7 +49,7 @@ docker compose up -d
 - `main` 的后端或容器构建文件更新时自动发布，也可在 Actions 中手动运行。
 - 推送 `backend-v*.*.*` 标签会同时发布对应版本；`container-*` 标签用于单独发布容器，例如 `container-20261020`。
 - 镜像提供 `latest`、对应版本及 `sha-完整提交ID` 标签。固定版本可在 `.env` 中修改 `HANIMETA_IMAGE`。
-- 第一次成功发布后，仓库所有者需要在 GitHub 的 Packages 中打开 `hanimetascraper-backend` → Package settings → Change visibility，将其改为 **Public**，其他客户端才能匿名下载。镜像包默认是 Private，仓库公开不会自动改变镜像可见性。
+- 第一次成功发布后，确认镜像包可见性为 **Public**，其他客户端才能匿名下载。如果显示 Private，仓库所有者可在 GitHub 的 Packages 中打开 `hanimetascraper-backend` → Package settings → Change visibility，将其改为 Public。可见性以镜像包页面为准。
 
 #### 源码运行
 
@@ -168,7 +168,7 @@ Download [compose.yaml](compose.yaml) into an empty directory, then run there:
 docker compose up -d
 ```
 
-Default image: `ghcr.io/qing-98/hanimetascraper-backend:latest`. Anonymous pulls work after the first successful publication and the package is made Public. Check `http://DEPLOYMENT_HOST:8585/health` and set the Jellyfin plugin's `Backend URL` to `http://DEPLOYMENT_HOST:8585`, using an address reachable from Jellyfin's environment.
+Default public image: `ghcr.io/qing-98/hanimetascraper-backend:latest`. No login is needed to pull it. Check `http://DEPLOYMENT_HOST:8585/health` and set the Jellyfin plugin's `Backend URL` to `http://DEPLOYMENT_HOST:8585`, using an address reachable from Jellyfin's environment.
 
 To change the port or set an API token, copy [.env.example](.env.example) to `.env` beside `compose.yaml` and edit it. Set the same token in the plugin's `API Token` field. Cookies persist in a Docker volume.
 
@@ -186,7 +186,7 @@ docker compose up -d
 - Changes to backend or container build files on `main` publish automatically. Manual runs are also available under Actions.
 - `backend-v*.*.*` tags publish the matching version. `container-*` tags publish containers independently, for example `container-20261020`.
 - Tags include `latest`, the matching version, and `sha-FULL_COMMIT_ID`. Set `HANIMETA_IMAGE` in `.env` to pin a version.
-- After the first successful publication, the repository owner must open GitHub Packages → `hanimetascraper-backend` → Package settings → Change visibility and choose **Public** for anonymous client pulls. Packages start Private, even for public repositories.
+- After the first successful publication, confirm that the package visibility is **Public** for anonymous client pulls. If it is Private, the repository owner can open GitHub Packages → `hanimetascraper-backend` → Package settings → Change visibility and choose Public. Check the package page for its actual visibility.
 
 #### Running from source
 
